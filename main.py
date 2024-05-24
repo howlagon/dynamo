@@ -1,31 +1,24 @@
 import os, json, asyncio
 import config, data
 
+first_time_setup = False
 if __name__ == "__main__":
     print(f"{'Freaky ' if config.params['freaky'] else ''}Dynamo v{data.APP_VERSION}")
     if not os.path.exists('config.json'):
+        first_time_setup = True
         print("Config file not found! Generating one now.")
         asyncio.run(config.generate_config_py())
 
 import dynamo, nso
 
-# if __name__ == "__main__":
-#     print(f"{'Freaky ' if config.params['freaky'] else ''}Dynamo v{data.APP_VERSION}")
-#     try:
-#         asyncio.run(dynamo.main('howlagon'))
-#     except KeyboardInterrupt:
-#         print("a")
-#         os._exit(1)
-#     os._exit(0)
-# os._exit(0)    
-
-# from splatnet import graphql, view_battle
-# from database import UserDatabase
-
-# db = UserDatabase()
+async def precheck(username: str = None):
+    await dynamo.check_for_updates()
+    exists = await dynamo.check_login(username)
+    if not exists:
+        await dynamo.login()
 
 async def main():
-    print(f"{'Freaky ' if config.params['freaky'] else ''}Dynamo v{data.APP_VERSION}")
+    await precheck()
 
 if __name__ == '__main__':
     asyncio.run(main())

@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "dynamo"
+version = "0.0.1"
+description = "All the fun of using stat.ink with none of the hassle."
+authors = ["howlagon <24992550+howlagon@users.noreply.github.com>"]
+license = "LGPL-2.1"
+readme = "README.md"
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.12"
+aiohttp = "3.9.3"
+aiosqlite = "0.20.0"
+beautifulsoup4 = "4.12.3"
+msgpack-python = "0.5.6"
+nest-asyncio = "1.6.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

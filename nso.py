@@ -121,26 +121,26 @@ async def _get_session_token(code: str, verifier: bytes, stats_for_nerds=True, r
         'session_token_code': code,
         'session_token_code_verifier': verifier.replace(b"=", b"")
     }
-    print(body)
 
     async with aiohttp.ClientSession() as session:
-        async with session.post(f'https://accounts.nintendo.com/connect/1.0.0/api/session_token', data=body, headers=headers) as r:
-            if r.status != 200 and not recursive:
-                print(f"Got a non-200 response from Nintendo while fetching session token. Retrying...")
-                return await _get_session_token(code, verifier, stats_for_nerds, True)
-            elif recursive:
-                print(f"Unable to recover! Please try again.")
-                if stats_for_nerds: print(f"Response:\n{await r.text()}")
-                exit(1)
-            try:
-                return await r.json()['session_token']
-            except json.decoder.JSONDecodeError:
-                print(f"Got an invalid JSON response from Nintendo while fetching session token. Please try again.")
-                if stats_for_nerds: print(f"Response:\n{await r.text()}")
-                exit(1)
-            except KeyError:
-                print(f"Invalid session token code. What.\n\n{await r.text()}")
-                exit(1)
+        r = await session.post(f'https://accounts.nintendo.com/connect/1.0.0/api/session_token', data=urlencode(body), headers=headers)
+        if r.status != 200 and not recursive:
+            print(f"Got a non-200 response from Nintendo while fetching session token. Retrying...")
+            return await _get_session_token(code, verifier, stats_for_nerds, True)
+        elif recursive:
+            print(f"Unable to recover! Please try again.")
+            if stats_for_nerds: print(f"Response:\n{await r.text()}")
+            exit(1)
+        try:
+            json = await r.json()
+            return json['session_token']
+        except json.decoder.JSONDecodeError:
+            print(f"Got an invalid JSON response from Nintendo while fetching session token. Please try again.")
+            if stats_for_nerds: print(f"Response:\n{await r.text()}")
+            exit(1)
+        except KeyError:
+            print(f"Invalid session token code. What.\n\n{await r.text()}")
+            exit(1)
 
 async def _get_service_access_tokens(session_token: str) -> dict:
     headers = {
@@ -384,6 +384,17 @@ class LoginManager:
             session_token = await _get_session_token(session_token_code, self.session_code_verifier)
         except KeyError:
             print("Invalid session token code.")
+        service_access_response = await _get_service_access_tokens(session_token)
+        access_token, id_token = service_access_response['access_token'], service_access_response['id_token']
+        user_data = await _get_user_details(access_token)
+        f_data = await _get_f_data(id_token, user_data['id'])
+        web_api_response = await _get_web_api_response(id_token, user_data, f_data)
+        f_data = await _get_f_data(access_token, user_data['id'])
+        g_token = await _get_g_token(web_api_response, service_access_response, f_data, user_data)
+        bullet_token = await _get_bullet_token(g_token, user_data)
+        return user_data['nickname'], session_token, bullet_token, g_token, json.dumps(user_data), None
+
+    async def login_with_token(self, session_token: str) -> tuple:
         service_access_response = await _get_service_access_tokens(session_token)
         access_token, id_token = service_access_response['access_token'], service_access_response['id_token']
         user_data = await _get_user_details(access_token)
