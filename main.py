@@ -9,7 +9,7 @@ if __name__ == "__main__":
         print("Config file not found! Generating one now.")
         asyncio.run(config.generate_config_py())
 
-import dynamo, nso
+import dynamo, splatnet, nso
 
 async def precheck(username: str = None):
     await dynamo.check_for_updates()
@@ -19,6 +19,9 @@ async def precheck(username: str = None):
 
 async def main():
     await precheck()
+    users = await dynamo.get_users()
+    username = users[0]
+    await splatnet.check_tokens_and_regenerate(username)
 
 if __name__ == '__main__':
     asyncio.run(main())

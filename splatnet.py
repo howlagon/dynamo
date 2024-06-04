@@ -5,26 +5,26 @@ from loader import Loader
 
 db = UserDatabase()
 
-async def generate_tokens(nickname) -> dict:
-    with Loader(f"Regenerating tokens for {nickname}..."):
-        session_token = db[nickname][1]
+async def generate_tokens(username) -> dict:
+    with Loader(f"Regenerating tokens for {username}..."):
+        session_token = db[username][1]
         bullet_token, g_token = await nso.generate_new_tokens(session_token)
-        await db.set(nickname, {'bullet_token': bullet_token, 'g_token': g_token})
+        await db.set(username, {'bullet_token': bullet_token, 'g_token': g_token})
 
-async def check_tokens(nickname) -> bool:
-    loader = Loader(f"Checking tokens for {nickname}...").start()
-    bullet_token, gtoken = db[nickname][2], db[nickname][3]
-    response = await graphql(bullet_token, gtoken, 'home')
+async def check_tokens(username) -> bool:
+    loader = Loader(f"Checking tokens for {username}...").start()
+    bullet_token, g_token = db[username][2], db[username][3]
+    response = await graphql(bullet_token, g_token, 'home')
     loader.stop()
     return response.status == 200
 
-async def check_tokens_and_regenerate(nickname) -> bool:
-    if not await check_tokens(nickname): 
-        await generate_tokens(nickname)
-        return await check_tokens(nickname)
+async def check_tokens_and_regenerate(username) -> bool:
+    if not await check_tokens(username): 
+        await generate_tokens(username)
+        return await check_tokens(username)
     return True
 
-async def graphql(bullet_token: str, gtoken: str, query: str = None, hash: str = None, return_json=False) -> aiohttp.ClientResponse | dict:
+async def graphql(bullet_token: str, g_token: str, query: str = None, hash: str = None, return_json=False) -> aiohttp.ClientResponse | dict:
     assert (query or hash) and not (query and hash), "Must provide either a query or a hash, but not both"
     variables = None
     operationName = None
@@ -106,7 +106,7 @@ async def graphql(bullet_token: str, gtoken: str, query: str = None, hash: str =
     if operationName is not None:
         body['operationName'] = operationName
     cookies = {
-        '_gtoken': gtoken
+        '_gtoken': g_token
     }
     return await process_request(bullet_token, json=body, cookies=cookies, return_json=return_json)
 
@@ -126,7 +126,7 @@ async def generate_headers(bullet_token: str, user_data: dict | None = None) -> 
 		'Accept-Encoding':  'gzip, deflate'
 	}
 
-async def view_battle(vsResultId, bullet_token: str, gtoken: str):
+async def view_battle(vsResultId, bullet_token: str, g_token: str):
     body = {
         'extensions': {
             'persistedQuery': {
@@ -139,11 +139,11 @@ async def view_battle(vsResultId, bullet_token: str, gtoken: str):
         }
     }
     cookies = {
-        '_gtoken': gtoken
+        '_gtoken': g_token
     }
     return await process_request(bullet_token, json=body, cookies=cookies, return_json=True)
 
-async def view_coop(coopHistoryDetailId: str, gtoken: str) -> dict:
+async def view_coop(coopHistoryDetailId: str, g_token: str) -> dict:
     # unfinished
     body = {
         'extensions': {
@@ -157,7 +157,7 @@ async def view_coop(coopHistoryDetailId: str, gtoken: str) -> dict:
         }
     }
     cookies = {
-        '_gtoken': gtoken
+        '_gtoken': g_token
     }
     return await process_request(json=body, cookies=cookies)
 

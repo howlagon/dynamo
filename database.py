@@ -35,16 +35,16 @@ class Cache:
         }
         return data
     
-    async def view_battle(vsResultId, bullet_token: str, gtoken: str):
+    async def view_battle(vsResultId, bullet_token: str, g_token: str):
         from splatnet import view_battle
         await Cache.purge()
-        if (vsResultId, gtoken) in Cache.cache:
-            if Cache.cache[(vsResultId, gtoken)]['expires'] > time() or Cache.cache[(vsResultId, gtoken)]['expires'] == -1:
-                return Cache.cache[(vsResultId, gtoken)]['data']
+        if (vsResultId, g_token) in Cache.cache:
+            if Cache.cache[(vsResultId, g_token)]['expires'] > time() or Cache.cache[(vsResultId, g_token)]['expires'] == -1:
+                return Cache.cache[(vsResultId, g_token)]['data']
         
-        data = await view_battle(vsResultId, bullet_token, gtoken)
+        data = await view_battle(vsResultId, bullet_token, g_token)
         expires = int(time()) + params['refresh']
-        Cache.cache[(vsResultId, gtoken)] = {
+        Cache.cache[(vsResultId, g_token)] = {
             'data': data,
             'expires': int(time()) + expires
         }
@@ -109,7 +109,7 @@ class UserDatabase(Database):
     def __init__(self): 
         self.database_name = "main.db"
         self.table_name = "users"
-        self.schema = '("nickname" TEXT PRIMARY KEY UNIQUE NOT NULL, "session_token" TEXT NOT NULL, "bullet_token" TEXT NOT NULL, "g_token" TEXT NOT NULL, "user_data" TEXT NOT NULL, "statink_key" TEXT)'
+        self.schema = '("username" TEXT PRIMARY KEY UNIQUE NOT NULL, "session_token" TEXT NOT NULL, "bullet_token" TEXT NOT NULL, "g_token" TEXT NOT NULL, "user_data" TEXT NOT NULL, "statink_key" TEXT)'
         if not exists(self.database_name):
             asyncio.run(self.create_table())
     
@@ -119,33 +119,33 @@ class UserDatabase(Database):
     def __delitem__(self, battle_id):
         return asyncio.run(self.delete(battle_id))
 
-    def __getitem__(self, nickname):
-        return asyncio.run(self.get(nickname))
+    def __getitem__(self, username):
+        return asyncio.run(self.get(username))
     
-    def __setitem__(self, nickname, data: dict) -> None:
-        asyncio.run(self.set(nickname, data))
+    def __setitem__(self, username, data: dict) -> None:
+        asyncio.run(self.set(username, data))
     
-    async def get(self, nickname):
+    async def get(self, username):
         async with self as database:
-            async with database.execute(f"SELECT * FROM {self.table_name} WHERE nickname=?", (nickname,)) as cursor:
+            async with database.execute(f"SELECT * FROM {self.table_name} WHERE username=?", (username,)) as cursor:
                 return await cursor.fetchone()
     
-    async def set(self, nickname, data: dict) -> None:
+    async def set(self, username, data: dict) -> None:
         async with self as database:
-            session_token = data['session_token'] if 'session_token' in data else (await self.get(nickname))[1] if nickname in self else None
-            bullet_token = data['bullet_token'] if 'bullet_token' in data else (await self.get(nickname))[2] if nickname in self else None
-            g_token = data['g_token'] if 'g_token' in data else (await self.get(nickname))[3] if nickname in self else None
-            user_data = data['user_data'] if 'user_data' in data else (await self.get(nickname))[4] if nickname in self else None
-            statink_key = data['statink_key'] if 'statink_key' in data else (await self.get(nickname))[5] if nickname in self else None
-            if nickname in self:
-                await database.execute(f"UPDATE {self.table_name} SET session_token=?, bullet_token=?, g_token=?, user_data=?, statink_key=? WHERE nickname=?", (session_token, bullet_token, g_token, user_data, statink_key, nickname,))
+            session_token = data['session_token'] if 'session_token' in data else (await self.get(username))[1] if username in self else None
+            bullet_token = data['bullet_token'] if 'bullet_token' in data else (await self.get(username))[2] if username in self else None
+            g_token = data['g_token'] if 'g_token' in data else (await self.get(username))[3] if username in self else None
+            user_data = data['user_data'] if 'user_data' in data else (await self.get(username))[4] if username in self else None
+            statink_key = data['statink_key'] if 'statink_key' in data else (await self.get(username))[5] if username in self else None
+            if username in self:
+                await database.execute(f"UPDATE {self.table_name} SET session_token=?, bullet_token=?, g_token=?, user_data=?, statink_key=? WHERE username=?", (session_token, bullet_token, g_token, user_data, statink_key, username,))
             else:
-                await database.execute(f"INSERT INTO {self.table_name} VALUES (?, ?, ?, ?, ?, ?)", (nickname, session_token, bullet_token, g_token, user_data, statink_key,))
+                await database.execute(f"INSERT INTO {self.table_name} VALUES (?, ?, ?, ?, ?, ?)", (username, session_token, bullet_token, g_token, user_data, statink_key,))
             await database.commit()
 
-    async def contains(self, nickname):
+    async def contains(self, username):
         async with self as database:
-            async with database.execute(f"SELECT * FROM {self.table_name} WHERE nickname=?", (nickname,)) as cursor:
+            async with database.execute(f"SELECT * FROM {self.table_name} WHERE username=?", (username,)) as cursor:
                 return await cursor.fetchone() is not None
 
     async def create_table(self):

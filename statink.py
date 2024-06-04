@@ -111,9 +111,9 @@ async def format_request(username: str, battle_data: dict) -> dict:
 
 async def upload_battle(username: str, battle_id: str):
     db = UserDatabase()
-    bullet_token, gtoken = db[username][2], db[username][3]
+    bullet_token, g_token = db[username][2], db[username][3]
     # get battle data
-    battle_data = await Cache.view_battle(battle_id, bullet_token, gtoken)
+    battle_data = await Cache.view_battle(battle_id, bullet_token, g_token)
     request = await format_request(username, battle_data)
     loader = Loader('Uploading battle...', detailed=True).start()
     headers = {
@@ -188,8 +188,8 @@ async def find_rank_before(username: str, previous_history_detail: str | None) -
     """Takes a mode and battle id and returns the rank of the previous battle"""
     if previous_history_detail is None: return None
     db = UserDatabase()
-    bullet_token, gtoken = db[username][2], db[username][3]
-    matches = await Cache.graphql(bullet_token, gtoken, 'latest', return_json=True)
+    bullet_token, g_token = db[username][2], db[username][3]
+    matches = await Cache.graphql(bullet_token, g_token, 'latest', return_json=True)
     # wacky list comprehension
     battles = [node['historyDetails']['nodes'] for node in matches['data']['latestBattleHistories']['historyGroups']['nodes']][0]
     battle = [battle for battle in battles if battle['id'] == previous_history_detail][0]
@@ -198,8 +198,8 @@ async def find_rank_before(username: str, previous_history_detail: str | None) -
 
 async def find_rank_after(username: str, history_detail: str) -> str:
     db = UserDatabase()
-    bullet_token, gtoken = db[username][2], db[username][3]
-    matches = await Cache.graphql(bullet_token, gtoken, 'latest', return_json=True)
+    bullet_token, g_token = db[username][2], db[username][3]
+    matches = await Cache.graphql(bullet_token, g_token, 'latest', return_json=True)
     # wacky list comprehension
     battles = [node['historyDetails']['nodes'] for node in matches['data']['latestBattleHistories']['historyGroups']['nodes']][0]
     battle = [battle for battle in battles if battle['id'] == history_detail][0]
@@ -227,8 +227,8 @@ async def get_challenge_win_loss(username, history_detail: str, mode: str):
         mode = 'bankara'
     
     db = UserDatabase()
-    bullet_token, gtoken = db[username][2], db[username][3]
-    matches = await graphql(bullet_token, gtoken, f'{mode}', return_json=True)
+    bullet_token, g_token = db[username][2], db[username][3]
+    matches = await graphql(bullet_token, g_token, f'{mode}', return_json=True)
     nodes = matches['data'][[key for key in matches['data'].keys() if 'Histories' in key][0]]['nodes']
     for node in nodes:
         for battle in node['historyDetails']['nodes']:
@@ -239,8 +239,8 @@ async def get_challenge_win_loss(username, history_detail: str, mode: str):
 
 async def get_x_power_after(username, history_detail: str):
     db = UserDatabase()
-    bullet_token, gtoken = db[username][2], db[username][3]
-    matches = await graphql(bullet_token, gtoken, 'xmatch', return_json=True)
+    bullet_token, g_token = db[username][2], db[username][3]
+    matches = await graphql(bullet_token, g_token, 'xmatch', return_json=True)
     nodes = matches['data'][[key for key in matches['data'].keys() if 'Histories' in key][0]]['nodes']
     for node in nodes:
         for battle in node['historyDetails']['nodes']:
@@ -251,8 +251,8 @@ async def get_x_power_after(username, history_detail: str):
 async def get_anarchy_power_before(username, previous_history_detail: str | None):
     if previous_history_detail is None: return None
     db = UserDatabase()
-    bullet_token, gtoken = db[username][2], db[username][3]
-    previous_battle = await Cache.view_battle(previous_history_detail, bullet_token, gtoken)
+    bullet_token, g_token = db[username][2], db[username][3]
+    previous_battle = await Cache.view_battle(previous_history_detail, bullet_token, g_token)
     return previous_battle['data']['vsHistoryDetail']['bankaraMatch']['bankaraPower']['power']
 
 async def format_player(player_dict: dict, rank_in_team: int) -> dict:
