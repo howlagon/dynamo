@@ -11,9 +11,9 @@ async def find_missing_battles(username: str, mode: str = 'latest') -> tuple[lis
     """Finds missing battles byh comparing uploaded battles on Stat.ink with all battles on Splatnet"""
     await splatnet.check_tokens_and_regenerate(username)
     loader = Loader(f"Finding missing battles for {username}...", detailed=False).start()
-    bullet_token, gtoken, stat_ink_api_key = db[username][2], db[username][3], db[username][5]
+    bullet_token, g_token, stat_ink_api_key = db[username][2], db[username][3], db[username][5]
     uploaded_battles = await statink.fetch_uploaded_battles(stat_ink_api_key)
-    all_battles = await splatnet.fetch_battle_ids(bullet_token, gtoken, mode)
+    all_battles = await splatnet.fetch_battle_ids(bullet_token, g_token, mode)
     missing_battles = [i for i in all_battles if i not in uploaded_battles]
     loader.stop()
     return missing_battles, all_battles
@@ -76,8 +76,8 @@ async def login() -> None:
     print('Please consider reading through the "Token Generation" section in the README before proceeding.')
     print('Log in to the following url, right click the "Select this account" button, copy the link address, and then paste it here.')
     data = input(login_manager.login_url + "\n")
-    nickname, session_token, bullet_token, g_token, user_data, stat_ink_key = await login_manager.login(data)
-    db[nickname] = {
+    username, session_token, bullet_token, g_token, user_data, stat_ink_key = await login_manager.login(data)
+    db[username] = {
         'session_token': session_token,
         'bullet_token': bullet_token,
         'g_token': g_token,
@@ -85,10 +85,14 @@ async def login() -> None:
         'stat_ink_key': stat_ink_key
     }
 
-async def find_and_upload_missing_battles(username: str, first_time: bool = False) -> None:
+async def get_users() -> list:
+    """Returns a list of all users in the database"""
+    return list([i[0] for i in await db.list()])
+
+async def find_and_upload_missing_battles(username: str, check_all: bool = False) -> None:
     """Finds and uploads all missing battles in the latest battles, and other modes if it's the first time the user is running the script"""
     modes = ["latest"]
-    if first_time:
+    if check_all:
         modes += ["regular", "bankara", 'xmatch', 'event', 'pbs'] 
     missing_battles, all_battles = [], []
     for mode in modes:
