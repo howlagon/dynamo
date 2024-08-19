@@ -8,7 +8,7 @@ from loader import Loader
 db = UserDatabase()
 
 async def find_missing_battles(username: str, mode: str = 'latest') -> tuple[list, list]:
-    """Finds missing battles byh comparing uploaded battles on Stat.ink with all battles on Splatnet"""
+    """Finds missing battles by comparing uploaded battles on Stat.ink with all battles on Splatnet"""
     await splatnet.check_tokens_and_regenerate(username)
     loader = Loader(f"Finding missing battles for {username}...", detailed=False).start()
     bullet_token, g_token, stat_ink_api_key = db[username][2], db[username][3], db[username][5]
@@ -18,11 +18,29 @@ async def find_missing_battles(username: str, mode: str = 'latest') -> tuple[lis
     loader.stop()
     return missing_battles, all_battles
 
+async def find_missing_jobs(username: str) -> list:
+    """Finds missing jobs by comparing uploaded jobs on Stat.ink with all jobs on Splatnet"""
+    await splatnet.check_tokens_and_regenerate(username)
+    loader = Loader(f"Finding missing jobs for {username}...", detailed=False).start()
+    bullet_token, g_token, stat_ink_api_key = db[username][2], db[username][3], db[username][5]
+    uploaded_jobs = await statink.fetch_uploaded_jobs(stat_ink_api_key)
+    all_jobs = await splatnet.fetch_job_ids(bullet_token, g_token)
+    missing_jobs = [i for i in all_jobs if i not in uploaded_jobs]
+    loader.stop()
+    return missing_jobs
+
 async def upload_missing_battles(username: str, missing_battle_ids: list) -> None:
     """Uploads battles to stat.ink from the list of missing battle IDs"""
     loader = Loader("Uploading missing battles...", detailed=False).start()
     for battle in missing_battle_ids:
         await statink.upload_battle(username, battle)
+    loader.stop()
+
+async def upload_missing_jobs(username: str, missing_job_ids: list) -> None:
+    """Uploads jobs to stat.ink from the list of missing job IDs"""
+    loader = Loader("Uploading missing jobs...", detailed=False).start()
+    for job in missing_job_ids:
+        await statink.upload_job(username, job)
     loader.stop()
 
 async def check_if_git_installed() -> bool:

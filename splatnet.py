@@ -1,5 +1,5 @@
 import aiohttp, json
-import nso, utils
+import nso, tools.utils as utils
 from database import UserDatabase
 from loader import Loader
 
@@ -24,9 +24,8 @@ async def check_tokens_and_regenerate(username) -> bool:
         return await check_tokens(username)
     return True
 
-async def graphql(bullet_token: str, g_token: str, query: str = None, hash: str = None, return_json=False) -> aiohttp.ClientResponse | dict:
+async def graphql(bullet_token: str, g_token: str, query: str = None, hash: str = None, return_json: bool = False, variables: dict = None) -> aiohttp.ClientResponse | dict:
     assert (query or hash) and not (query and hash), "Must provide either a query or a hash, but not both"
-    variables = None
     operationName = None
     match query.lower().replace('_', '').replace(' ', ''):
         case 'home':
@@ -47,7 +46,9 @@ async def graphql(bullet_token: str, g_token: str, query: str = None, hash: str 
         case 'privatebattlehistories' | 'privatebattles' | 'pbs' | 'private':
             hash = '3dd1b491b2b563e9dfc613e01f0b8e977e122d901bc17466743a82b7c0e6c33a'
         case 'coop' | 'salmon' | 'salmonrun' | 'sr':
-            hash = '0f8c33970a425683bb1bdecca50a0ca4fb3c3641c0b2a1237aedfde9c0cb2b8f'
+            hash = 'bdb796803793ada1ee2ea28e2034a31f5c231448e80f5c992e94b021807f40f8'
+        case 'coopjob' | 'job':
+            hash = "f2d55873a9281213ae27edc171e2b19131b3021a2ae263757543cdd3bf015cc8"
         case 'currentplayer':
             hash = '51fc56bbf006caf37728914aa8bc0e2c86a80cf195b4d4027d6822a3623098a8'
         case 'currentfest':
@@ -130,7 +131,7 @@ async def view_battle(vsResultId, bullet_token: str, g_token: str):
     body = {
         'extensions': {
             'persistedQuery': {
-                'sha256Hash': 'f893e1ddcfb8a4fd645fd75ced173f18b2750e5cfba41d2669b9814f6ceaec46',
+                'sha256Hash': '20f88b10d0b1d264fcb2163b0866de26bbf6f2b362f397a0258a75b7fa900943',
                 'version': 1
             }
         },
@@ -143,23 +144,8 @@ async def view_battle(vsResultId, bullet_token: str, g_token: str):
     }
     return await process_request(bullet_token, json=body, cookies=cookies, return_json=True)
 
-async def view_coop(coopHistoryDetailId: str, g_token: str) -> dict:
-    # unfinished
-    body = {
-        'extensions': {
-            'persistedQuery': {
-                'sha256Hash': '824a1e22c4ad4eece7ad94a9a0343ecd76784be4f77d8f6f563c165afc8cf602',
-                'version': 1
-            }
-        },
-        'variables': {
-            'coopHistoryDetailId': coopHistoryDetailId
-        }
-    }
-    cookies = {
-        '_gtoken': g_token
-    }
-    return await process_request(json=body, cookies=cookies)
+async def view_coop(coopHistoryDetailId: str, bullet_token: str, g_token: str) -> dict:
+    return await graphql(bullet_token, g_token, 'job', variables={'coopHistoryDetailId': coopHistoryDetailId}, return_json=True)
 
 async def process_request(bullet_token, **kwargs) -> aiohttp.ClientResponse:
     async with aiohttp.ClientSession() as session:
@@ -191,3 +177,19 @@ async def fetch_battle_ids(bullet_token: str, g_token: str, modes: str | list) -
         battle_ids[battle_id] = battle['id'] # such good code i know!
     loader.stop()
     return battle_ids
+
+async def fetch_job_ids(bullet_token: str, g_token: str, modes: str | list) -> dict:
+    loader = Loader("Fetching job IDs...", detailed=True).start()
+    job_ids = {}
+    job_histories = []
+    job_nodes = []
+    response = graphql(bullet_token, g_token, 'coop', return_json=True)
+    job_nodes.extend(response['data']['coop']['jobHistories']['nodes'])
+    for node in job_nodes:
+        job_histories.extend(node['jobDetails']['nodes'])
+    
+    for job in job_histories:
+        job_id = await utils.decode_battle_id(job['id'])
+        job_ids[job_id] = job['id']
+    loader.stop()
+    return job_ids

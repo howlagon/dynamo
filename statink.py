@@ -1,30 +1,40 @@
 import aiohttp
-import utils
 import json
 import msgpack
 import re
 from datetime import datetime
-from splatnet import graphql
+
 from database import UserDatabase, Cache
 from loader import Loader
 from data import APP_VERSION
+import tools.utils as utils
+import tools.statink.versus as vs
+import tools.statink.common as common
 
-async def format_request(username: str, battle_data: dict) -> dict:
+async def format_request(payload: dict) -> dict:
+    payload['agent'] = 'Dynamo'
+    payload['agent_version'] = APP_VERSION
+    payload['automated'] = 'yes'
+    payload['test'] = "yes"
+
+    return payload
+
+async def format_battle(username: str, battle_data: dict) -> dict:
     # skips level_before/after, cash_before/after
     loader = Loader('Formatting battle data...', detailed=True).start()
     data = battle_data['data']['vsHistoryDetail']
     previous_history_detail = data['previousHistoryDetail'].get('id')
-    lobby_mode = await find_statink_lobby_mode(battle_data)
+    lobby_mode = await vs.find_statink_lobby_mode(battle_data)
     players: list = data['myTeam']['players']
-    me = await find_me_from_players(players)
+    me = await vs.find_me_from_players(players)
     #### general data ####
     payload = {
         # 'test': 'yes',
         'uuid': await utils.decode_battle_id(data['id']),
         'lobby': lobby_mode,
-        'rule': await find_statink_mode_rule(data['vsRule']['rule']),
-        'stage': await find_statink_stage(data['vsStage']['name']),
-        'weapon': await find_statink_weapon(me['weapon']['name']),
+        'rule': await vs.find_statink_mode_rule(data['vsRule']['rule']),
+        'stage': await vs.find_statink_stage(data['vsStage']['name']),
+        'weapon': await common.find_statink_weapon(me['weapon']['name']),
         'result': data['judgement'].lower(),
         'knockout': None,
         'rank_in_team': players.index(next(filter(lambda n: n.get('isMyself') == True, players))) + 1,
@@ -53,10 +63,10 @@ async def format_request(username: str, battle_data: dict) -> dict:
             payload['third_team_theme'] = data['otherTeams'][1]['festTeamName']
     #### splatfest tricolor ####
     elif lobby_mode in ['tricolor']:
-        payload['our_team_role'] = await format_tricolor_role(data['myTeam']['tricolorRole'])
-        payload['their_team_role'] = await format_tricolor_role(data['otherTeams'][0]['tricolorRole'])
+        payload['our_team_role'] = await vs.format_tricolor_role(data['myTeam']['tricolorRole'])
+        payload['their_team_role'] = await vs.format_tricolor_role(data['otherTeams'][0]['tricolorRole'])
         if len(data['otherTeams']) > 1:
-            payload['third_team_role'] = await format_tricolor_role(data['otherTeams'][1]['tricolorRole'])
+            payload['third_team_role'] = await vs.format_tricolor_role(data['otherTeams'][1]['tricolorRole'])
     #### series, open, x ####
     elif lobby_mode in ['xmatch', 'bankara_open', 'bankara_challenge']:
         payload['knockout'] = 'yes' if data['knockout'] in ['WIN', 'LOSE'] else 'no'
@@ -64,42 +74,39 @@ async def format_request(username: str, battle_data: dict) -> dict:
         payload['their_team_count'] = data['otherTeams'][0]['result']['score']
     #### series, open ####
     if lobby_mode in ['bankara_open', 'bankara_challenge']:
-        rank_before = await find_rank_before(username, previous_history_detail)
+        rank_before = await vs.find_rank_before(username, previous_history_detail)
         payload['rank_before'] = rank_before[0].lower()
         if len(rank_before) > 1:
             payload['rank_before_s_plus'] = rank_before[1]
-        rank_after = await find_rank_after(username, data['id'])
+        rank_after = await vs.find_rank_after(username, data['id'])
         payload['rank_after'] = rank_after[0].lower()
         if len(rank_after) > 1:
             payload['rank_after_s_plus'] = rank_after[1]
     #### open ####
     if lobby_mode in ['bankara_open']:
-        bankara_power = await find_bankara_power(data['bankaraMatch'])
+        bankara_power = await vs.find_bankara_power(data['bankaraMatch'])
         if bankara_power is not None: payload['bankara_power_after'] = bankara_power
-        bankara_power_before = await get_anarchy_power_before(username, previous_history_detail)
+        bankara_power_before = await vs.get_anarchy_power_before(username, previous_history_detail)
         if bankara_power_before is not None: payload['bankara_power_before'] = bankara_power_before
     #### x, series (for win/loss) ####
     if lobby_mode in ['xmatch', 'bankara_challenge']:
-        payload['challenge_win'], payload['challenge_lose'] = await get_challenge_win_loss(username, data['id'], lobby_mode)
+        payload['challenge_win'], payload['challenge_lose'] = await vs.get_challenge_win_loss(username, data['id'], lobby_mode)
     #### x (for x poewr) ####
     if lobby_mode in ['xmatch']:
         payload['x_power_before'] = data['xMatch']['lastXPower']
-        x_power_after = await get_x_power_after(username, data['id'])
+        x_power_after = await vs.get_x_power_after(username, data['id'])
         if x_power_after is not None: payload['x_power_after'] = x_power_after
     
     payload['our_team_color'] = await utils.rgba_to_hex(data['myTeam']['color'])
     payload['their_team_color'] = await utils.rgba_to_hex(data['otherTeams'][0]['color'])
 
-    payload['our_team_players'] = [await format_player(player, i + 1) for i, player in enumerate(players)]
-    payload['their_team_players'] = [await format_player(player, i + 1) for i, player in enumerate(data['otherTeams'][0]['players'])]
+    payload['our_team_players'] = [await vs.format_player(player, i + 1) for i, player in enumerate(players)]
+    payload['their_team_players'] = [await vs.format_player(player, i + 1) for i, player in enumerate(data['otherTeams'][0]['players'])]
     
     if len(data['otherTeams']) > 1:
         payload['third_team_color'] = await utils.rgba_to_hex(data['otherTeams'][1]['color'])
-        payload['third_team_players'] = [await format_player(player, i + 1) for i, player in enumerate(data['otherTeams'][1]['players'])]
+        payload['third_team_players'] = [await vs.format_player(player, i + 1) for i, player in enumerate(data['otherTeams'][1]['players'])]
 
-    payload['agent'] = 'Dynamo'
-    payload['agent_version'] = APP_VERSION
-    payload['automated'] = 'yes'
     date = datetime.strptime(data['playedTime'], "%Y-%m-%dT%H:%M:%SZ")
     proper_datetime = int((date - datetime(1970, 1, 1)).total_seconds())
     payload['start_at'] = int(proper_datetime)
@@ -109,12 +116,59 @@ async def format_request(username: str, battle_data: dict) -> dict:
     loader.stop()
     return payload
 
+async def format_job(username: str, battle_data: dict) -> dict:
+    loader = Loader('Formatting job data...', detailed=True).start()
+    data = battle_data['data']['coopHistoryDetail']
+    payload = {
+        "uuid": await utils.decode_battle_id(data['id']),
+        "private": "no", # FIX LATER
+        "big_run": "yes" if data["rule"] == "BIG_RUN" else "no",
+        "eggstra_work": "no", # FIX LATER
+        "stage": vs.find_statink_stage(data['coopStage']['name'])
+    }
+
+    payload["danger_rate"] = data['dangerRate'] * 100 if payload["eggstra_work"] == "no" else None
+    payload["fail_reason"] = None
+    
+    #### player data ####
+    payload["title_after"] = data["afterGrade"]['name']
+    payload["title_exp_after"] = data["afterGradePoint"]
+    payload["title_before"], payload["title_exp_before"] = await find_job_grade_before(username, data['previousHistoryDetail']['id'])
+    
+    #### team data ####
+    payload["golden_eggs"] = await find_total_golden_eggs(data)
+    payload["power_eggs"] = await find_total_power_eggs(data)
+
+    #### king ####
+    payload["king_smell"] = data["smellMeter"]
+    payload["king_salmonid"] = await statink_find_king(data["boss"]["id"])
+    payload["clear_extra"] = data["bossResult"].get("hasDefeatBoss") if data["bossResult"] is not None else None
+
+    #### scales ####
+    payload["gold_scale"] = data["scale"]["gold"] if data["scale"] is not None else 0
+    payload["silver_scale"] = data["scale"]["silver"] if data["scale"] is not None else 0
+    payload["bronze_scale"] = data["scale"]["bronze"] if data["scale"] is not None else 0
+
+    #### job score ####
+    payload["job_point"] = data["jobPoint"]
+    payload["job_score"] = data["jobScore"]
+    payload["job_rate"] = data["jobRate"]
+    payload["job_bonus"] = data["jobBonus"]
+
+    #### waves ####
+    payload["clear_waves"] = 3 if len(data['waveResults']) >= 3 else len(data['waveResults']) - 1
+    payload["waves"] = [await generate_wave(wave) for wave in data['waveResults']]
+
+    #### ####
+    payload["players"]
+
 async def upload_battle(username: str, battle_id: str):
     db = UserDatabase()
     bullet_token, g_token = db[username][2], db[username][3]
     # get battle data
     battle_data = await Cache.view_battle(battle_id, bullet_token, g_token)
-    request = await format_request(username, battle_data)
+    print(f"\n{battle_id} {battle_data}")
+    request = await format_request(await format_battle(username, battle_data))
     loader = Loader('Uploading battle...', detailed=True).start()
     headers = {
         'Authorization': f'Bearer {db[username][5]}',
@@ -124,92 +178,9 @@ async def upload_battle(username: str, battle_id: str):
         async with session.post('https://stat.ink/api/v3/battle', headers=headers, json=request) as r:
             data = await r.json()
     loader.stop()
-    # print('\n', json.dumps(request), '\n')
-    print('\n', json.dumps(data), '\n')
 
-async def find_statink_lobby_mode(battle_data: dict) -> str:
-    """Takes a battle data dict and returns the lobby mode for stat.ink"""
-    # so cool. so cool. so cool. so cool. so cool. so cool. so cool
-    mode: str
-    data = battle_data['data']['vsHistoryDetail']
-    vsMode = battle_data['data']['vsHistoryDetail']['vsMode']['mode']
-    match vsMode:
-        case 'X_MATCH': mode = 'xmatch'
-        case 'LEAGUE': mode = 'event'
-        case 'PRIVATE': mode = 'private'
-        case 'FEST': 
-            match data['festMatch']['myFestPower']:
-                case None: mode = 'splatfest_open'
-                case _: mode = 'splatfest_challenge'
-        case 'BANKARA':
-            match data['bankaraMatch']['mode']:
-                case 'CHALLENGE': mode = 'bankara_challenge'
-                case _: mode = 'bankara_open'
-        case 'REGULAR': mode = 'regular'
-    return mode
-
-async def find_statink_mode_rule(rule: str) -> str:
-    match rule:
-        case 'TURF_WAR': return 'nawabari'
-        case 'LOFT': return 'yagura'
-        case 'AREA': return 'area' # so cool
-        case 'GOAL': return 'hoko'
-        case 'CLAM': return 'asari' # so cool
-        case 'TRI_COLOR': return 'tricolor'
-
-async def find_statink_stage(stage: str) -> str:
-    match stage:
-        case _: return stage.lower() \
-                             .replace(' ', '_') \
-                             .replace('.', '') \
-                             .replace("'", '') \
-                             .replace('&', 'and')
-
-async def find_statink_weapon(weapon: str) -> str:
-    return weapon.replace(' ', '_') \
-                 .replace('-', '_') \
-                 .replace("'", '_') \
-                 .replace('.', '') \
-                 .replace('(', '') \
-                 .replace(')', '') \
-                 .lower()
-
-async def find_me_from_players(players: list) -> dict | None:
-    for player in players:
-        if player['isMyself']: return player
-    return None
-
-async def find_bankara_power(bankara_match: dict) -> int | None:
-    if bankara_match.get("bankaraPower") is not None and bankara_match['bankaraPower'].get('power') is not None:
-        return bankara_match['bankaraPower']['power']
-    return None
-
-async def find_rank_before(username: str, previous_history_detail: str | None) -> str | None:
-    """Takes a mode and battle id and returns the rank of the previous battle"""
-    if previous_history_detail is None: return None
+async def upload_job(username: str, job_id: str):
     db = UserDatabase()
-    bullet_token, g_token = db[username][2], db[username][3]
-    matches = await Cache.graphql(bullet_token, g_token, 'latest', return_json=True)
-    # wacky list comprehension
-    battles = [node['historyDetails']['nodes'] for node in matches['data']['latestBattleHistories']['historyGroups']['nodes']][0]
-    battle = [battle for battle in battles if battle['id'] == previous_history_detail][0]
-    rank = await split_rank(battle['udemae'])
-    return rank
-
-async def find_rank_after(username: str, history_detail: str) -> str:
-    db = UserDatabase()
-    bullet_token, g_token = db[username][2], db[username][3]
-    matches = await Cache.graphql(bullet_token, g_token, 'latest', return_json=True)
-    # wacky list comprehension
-    battles = [node['historyDetails']['nodes'] for node in matches['data']['latestBattleHistories']['historyGroups']['nodes']][0]
-    battle = [battle for battle in battles if battle['id'] == history_detail][0]
-    rank = await split_rank(battle['udemae'])
-    return rank
-
-async def split_rank(rank):
-    regex = r"([CBAS][-+]?)(\d\d?)?"
-    match = re.match(regex, rank)
-    return match.groups()
 
 async def fetch_uploaded_battles(stat_ink_api_key: str):
     headers = {
@@ -221,81 +192,84 @@ async def fetch_uploaded_battles(stat_ink_api_key: str):
                 data = await r.json()
     return data
 
-async def get_challenge_win_loss(username, history_detail: str, mode: str):
-    assert mode in ['xmatch', 'bankara_challenge']
-    if mode == 'bankara_challenge':
-        mode = 'bankara'
-    
-    db = UserDatabase()
-    bullet_token, g_token = db[username][2], db[username][3]
-    matches = await graphql(bullet_token, g_token, f'{mode}', return_json=True)
-    nodes = matches['data'][[key for key in matches['data'].keys() if 'Histories' in key][0]]['nodes']
-    for node in nodes:
-        for battle in node['historyDetails']['nodes']:
-            if history_detail == battle['id']:
-                break
-    measurement = node['bankaraMatchChallenge' if mode == 'bankara' else 'xMatchMeasurement']
-    return measurement['winCount'], measurement['loseCount']
+async def fetch_uploaded_jobs(stat_ink_api_key: str):
+    headers = {
+        'Authorization': f'Bearer {stat_ink_api_key}'
+    }
+    with Loader('Fetching uploaded jobs...', detailed=True):
+        async with aiohttp.ClientSession() as session:
+            async with session.get('https://stat.ink/api/v3/salmon/uuid-list', headers=headers) as r:
+                data = await r.json()
+    return data
 
-async def get_x_power_after(username, history_detail: str):
-    db = UserDatabase()
-    bullet_token, g_token = db[username][2], db[username][3]
-    matches = await graphql(bullet_token, g_token, 'xmatch', return_json=True)
-    nodes = matches['data'][[key for key in matches['data'].keys() if 'Histories' in key][0]]['nodes']
-    for node in nodes:
-        for battle in node['historyDetails']['nodes']:
-            if history_detail == battle['id']:
-                break
-    return node['xMatchMeasurement']['xPowerAfter']
 
-async def get_anarchy_power_before(username, previous_history_detail: str | None):
+async def find_job_grade_before(username: str, previous_history_detail: str | None) -> dict:
+    """Takes a mode and battle id and returns the rank of the previous battle"""
     if previous_history_detail is None: return None
     db = UserDatabase()
     bullet_token, g_token = db[username][2], db[username][3]
-    previous_battle = await Cache.view_battle(previous_history_detail, bullet_token, g_token)
-    return previous_battle['data']['vsHistoryDetail']['bankaraMatch']['bankaraPower']['power']
+    coop = await Cache.view_coop(previous_history_detail, bullet_token, g_token)
+    return coop["afterGrade"], coop["afterGradePoint"]
 
-async def format_player(player_dict: dict, rank_in_team: int) -> dict:
-    new_dict = {
-        'me': player_dict['isMyself'],
-        'rank_in_team': rank_in_team,
-        'name': player_dict['name'],
-        'number': player_dict['nameId'],
-        'splashtag_title': player_dict['byname'],
-        'weapon': await find_statink_weapon(player_dict['weapon']['name']),
-        'inked': player_dict['paint'],
-        'gears': {
-            'headgear': await format_gear_structure(player_dict['headGear']),
-            'clothing': await format_gear_structure(player_dict['clothingGear']),
-            'shoes': await format_gear_structure(player_dict['shoesGear'])
-        },
-        'disconnected': 'yes' if player_dict['result'] is None else 'no',
-        'crown': 'yes' if player_dict['crown'] or player_dict.get('festDragonCert') != 'NONE' else 'no',
-        'species': player_dict['species'].lower()
+async def find_total_golden_eggs(data: dict) -> int:
+    return sum([wave['teamDeliverCount'] for wave in data['waveResults']])
+
+async def find_total_power_eggs(data: dict) -> int:
+    return sum([member["deliverCount"] for member in data['memberResults']]) + data["myResult"]["deliverCount"]
+
+async def find_known_occurrence(event_wave: dict | None) -> str:
+    if event_wave is None: return None
+    event_id = event_wave["id"]
+    match event_id:
+        case "Q29vcEV2ZW50V2F2ZS0x": return "rush"
+        case "Q29vcEV2ZW50V2F2ZS0y": return "goldie_seeking"
+        case "Q29vcEV2ZW50V2F2ZS0z": return "griller"
+        case "Q29vcEV2ZW50V2F2ZS00": return "mothership"
+        case "Q29vcEV2ZW50V2F2ZS01": return "fog"
+        case "Q29vcEV2ZW50V2F2ZS02": return "cohock_charge"
+        case "Q29vcEV2ZW50V2F2ZS03": return "giant_tornado"
+        case "Q29vcEV2ZW50V2F2ZS04": return "mudmouth_eruption"
+
+async def statink_get_uniform_color(uniform_id: str) -> str:
+    match uniform_id:
+        case "Q29vcFVuaWZvcm0tNw==": return "white" # 7
+
+async def generate_wave(waveResult: dict) -> dict:
+    match waveResult["waterLevel"]:
+        case 0: water_level = "low"
+        case 1: water_level = "normal"
+        case 2: water_level = "high"
+
+    specials = [await common.find_statink_special(special["id"]) for special in waveResult["specialWeapons"]]
+    special_uses = {}
+    for special in specials:
+        if special in special_uses:
+            special_uses[special] += 1
+        else:
+            special_uses[special] = 1
+    return {
+        "tide": water_level,
+        "event": await find_known_occurrence(waveResult["eventWave"]),
+        "danger_rate": None, # FIX LATER
+        "golden_quota": waveResult["deliverNorm"],
+        "golden_delivered": waveResult["teamDeliverCount"],
+        "golden_appearances": waveResult["goldenPopCount"],
+        "special_uses": special_uses
     }
-    if new_dict['crown'] == 'yes':
-        new_dict['crown_type'] = 'x' if player_dict['crown'] else '333x' if player_dict.get('festDragonCert') == 'DOUBLE_DRAGON' else '100x'
 
-    if player_dict['result'] is not None:
-        new_dict.update({
-            'kill': player_dict['result']['kill'],
-            'assist': player_dict['result']['assist'],
-            'kill_or_assist': player_dict['result']['kill'] + player_dict['result']['assist'],
-            'death': player_dict['result']['death'],
-            'special': player_dict['result']['special'],
-        })
-    if player_dict['result']['noroshiTry'] is not None:
-        new_dict['signal'] = player_dict['result']['noroshiTry']
-    return new_dict
-
-async def format_gear_structure(gear_dict: dict) -> dict:
-    new_dict = {
-        'primary_ability': await find_statink_weapon(gear_dict['primaryGearPower']['name']),
-        'secondary_abilities': [await find_statink_weapon(ability['name']) for ability in gear_dict['additionalGearPowers'] if ability['name'].lower() != 'unknown']
+async def generate_player(player: dict, me: bool = False) -> dict:
+    return {
+        "me": me,
+        "name": player["player"]["name"],
+        "number": player["player"]["nameId"],
+        "splashtag_title": player["player"]["byname"],
+        "uniform": await statink_get_uniform_color(player["player"]["uniform"]["id"]),
+        "special": await common.find_statink_special(utils.encode_b64(f"SpecialWeapon-{player['player']['specialWeapon']['weaponId']}")),
     }
-    return new_dict
 
-async def format_tricolor_role(role: str) -> str:
-    match role:
-        case 'DEFENSE': return 'defender'
-        case _: return 'attacker'
+async def statink_find_king(king_id: str) -> str:
+    match king_id:
+        case "Q29vcEVuZW15LTIz": return "cohozuna"
+        case "Q29vcEVuZW15LTI0": return "horrorboros"
+        case "Q29vcEVuZW15LTI1": return "megalodontia"
+        case "Q29vcEVuZW15LTMw": return "triumvirate"

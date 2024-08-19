@@ -50,6 +50,21 @@ class Cache:
         }
         return data
     
+    async def view_coop(coopHistoryDetailId, bullet_token: str, g_token: str):
+        from splatnet import view_coop
+        await Cache.purge()
+        if (coopHistoryDetailId, g_token) in Cache.cache:
+            if Cache.cache[(coopHistoryDetailId, g_token)]['expires'] > time() or Cache.cache[(coopHistoryDetailId, g_token)]['expires'] == -1:
+                return Cache.cache[(coopHistoryDetailId, g_token)]['data']
+        
+        data = await view_coop(coopHistoryDetailId, bullet_token, g_token)
+        expires = int(time()) + params['refresh']
+        Cache.cache[(coopHistoryDetailId, g_token)] = {
+            'data': data,
+            'expires': int(time()) + expires
+        }
+        return data
+    
     async def purge() -> None:
         for key in Cache.cache:
             if Cache.cache[key]['expires'] < time():
