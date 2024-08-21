@@ -12,7 +12,7 @@ from bs4 import BeautifulSoup
 from urllib.parse import urlencode
 from sys import exit
 
-from data import APP_VERSION
+from tools.data import APP_VERSION
 
 SPLATNET_URL: str = "https://api.lp1.av5ja.srv.nintendo.net"
 USER_AGENT: str   = 'Mozilla/5.0 (Linux; Android 11; Pixel 5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.61 Mobile Safari/537.36'
@@ -327,7 +327,7 @@ async def _get_bullet_token(g_token: str, user_data: dict) -> str:
 
     async with aiohttp.ClientSession() as session:
         async with session.post(f'{SPLATNET_URL}/api/bullet_tokens', headers=headers, cookies=cookies) as r:
-            if r.status >= 300: print(await r.text())
+            # if r.status >= 300: print(await r.text())
             match r.status:
                 case 204:
                     print("User has not played online before.")

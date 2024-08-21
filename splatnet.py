@@ -1,9 +1,11 @@
 import aiohttp, json
-import nso, utils
+from time import time
+import nso, tools.utils as utils
 from database import UserDatabase
 from loader import Loader
 
 db = UserDatabase()
+token_refresh_time = {}
 
 async def generate_tokens(username) -> dict:
     with Loader(f"Regenerating tokens for {username}..."):
@@ -19,14 +21,15 @@ async def check_tokens(username) -> bool:
     return response.status == 200
 
 async def check_tokens_and_regenerate(username) -> bool:
+    if username in token_refresh_time and time() - token_refresh_time[username] < 600:
+        return db[username][2], db[username][3]
     if not await check_tokens(username): 
         await generate_tokens(username)
         return await check_tokens(username)
     return True
 
-async def graphql(bullet_token: str, g_token: str, query: str = None, hash: str = None, return_json=False) -> aiohttp.ClientResponse | dict:
+async def graphql(bullet_token: str, g_token: str, query: str = None, hash: str = None, return_json: bool = False, variables: dict = None) -> aiohttp.ClientResponse | dict:
     assert (query or hash) and not (query and hash), "Must provide either a query or a hash, but not both"
-    variables = None
     operationName = None
     match query.lower().replace('_', '').replace(' ', ''):
         case 'home':
@@ -47,7 +50,9 @@ async def graphql(bullet_token: str, g_token: str, query: str = None, hash: str 
         case 'privatebattlehistories' | 'privatebattles' | 'pbs' | 'private':
             hash = '3dd1b491b2b563e9dfc613e01f0b8e977e122d901bc17466743a82b7c0e6c33a'
         case 'coop' | 'salmon' | 'salmonrun' | 'sr':
-            hash = '0f8c33970a425683bb1bdecca50a0ca4fb3c3641c0b2a1237aedfde9c0cb2b8f'
+            hash = 'bdb796803793ada1ee2ea28e2034a31f5c231448e80f5c992e94b021807f40f8'
+        case 'coopjob' | 'job':
+            hash = "f2d55873a9281213ae27edc171e2b19131b3021a2ae263757543cdd3bf015cc8"
         case 'currentplayer':
             hash = '51fc56bbf006caf37728914aa8bc0e2c86a80cf195b4d4027d6822a3623098a8'
         case 'currentfest':
@@ -130,7 +135,7 @@ async def view_battle(vsResultId, bullet_token: str, g_token: str):
     body = {
         'extensions': {
             'persistedQuery': {
-                'sha256Hash': 'f893e1ddcfb8a4fd645fd75ced173f18b2750e5cfba41d2669b9814f6ceaec46',
+                'sha256Hash': '20f88b10d0b1d264fcb2163b0866de26bbf6f2b362f397a0258a75b7fa900943',
                 'version': 1
             }
         },
@@ -143,36 +148,22 @@ async def view_battle(vsResultId, bullet_token: str, g_token: str):
     }
     return await process_request(bullet_token, json=body, cookies=cookies, return_json=True)
 
-async def view_coop(coopHistoryDetailId: str, g_token: str) -> dict:
-    # unfinished
-    body = {
-        'extensions': {
-            'persistedQuery': {
-                'sha256Hash': '824a1e22c4ad4eece7ad94a9a0343ecd76784be4f77d8f6f563c165afc8cf602',
-                'version': 1
-            }
-        },
-        'variables': {
-            'coopHistoryDetailId': coopHistoryDetailId
-        }
-    }
-    cookies = {
-        '_gtoken': g_token
-    }
-    return await process_request(json=body, cookies=cookies)
+async def view_coop(coopHistoryDetailId: str, bullet_token: str, g_token: str) -> dict:
+    return await graphql(bullet_token, g_token, 'job', variables={'coopHistoryDetailId': coopHistoryDetailId}, return_json=True)
 
 async def process_request(bullet_token, **kwargs) -> aiohttp.ClientResponse:
     async with aiohttp.ClientSession() as session:
         async with session.post(f'https://api.lp1.av5ja.srv.nintendo.net/api/graphql', headers=kwargs['headers'] if 'headers' in kwargs else await generate_headers(bullet_token), json=kwargs['json'], cookies=kwargs['cookies']) as r:
+            if r.status >= 400:
+                print(f"Error: {r.status}\n{await r.text()}")
             if kwargs.get('return_json') is not None and kwargs['return_json']:
                 return await r.json()
             return r
 
 async def fetch_battle_ids(bullet_token: str, g_token: str, modes: str | list) -> dict:
-    loader = Loader("Fetching battle IDs...", detailed=True).start()
-    if isinstance(modes, list) and any([i not in ['regular', 'bankara', 'x', 'event', 'private', 'latest'] for i in modes]):
+    if isinstance(modes, list) and any([i not in ['regular', 'bankara', 'x', 'event', 'private', 'latest', 'adaptive'] for i in modes]):
         raise ValueError('Invalid mode(s) provided')
-    elif isinstance(modes, str) and modes not in ['regular', 'bankara', 'x', 'event', 'private', 'all', 'latest']:
+    elif isinstance(modes, str) and modes not in ['regular', 'bankara', 'x', 'event', 'private', 'all', 'latest', 'adaptive']:
         raise ValueError('Invalid mode provided')
     if modes == 'all':
         modes = ['regular', 'bankara', 'x', 'event', 'private']
@@ -187,7 +178,24 @@ async def fetch_battle_ids(bullet_token: str, g_token: str, modes: str | list) -
     for node in battle_nodes:
         battle_histories.extend(node['historyDetails']['nodes'])
     for battle in battle_histories:
+        if battle["judgement"] == "DEEMED_LOSE":
+            continue
         battle_id = await utils.decode_battle_id(battle['id'])
         battle_ids[battle_id] = battle['id'] # such good code i know!
-    loader.stop()
     return battle_ids
+
+async def fetch_job_ids(bullet_token: str, g_token: str) -> dict:
+    loader = Loader("Fetching job IDs...", detailed=True).start()
+    job_ids = {}
+    job_histories = []
+    job_nodes = []
+    response = await graphql(bullet_token, g_token, 'coop', return_json=True)
+    job_nodes.extend(response['data']['coopResult']['historyGroups']['nodes'])
+    for node in job_nodes:
+        job_histories.extend(node['historyDetails']['nodes'])
+    
+    for job in job_histories:
+        job_id = await utils.decode_job_id(job['id'])
+        job_ids[job_id] = job['id']
+    loader.stop()
+    return job_ids

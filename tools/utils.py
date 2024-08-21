@@ -8,13 +8,21 @@ from sys import stdout
 from config import params
 
 NAMESPACE = uuid.UUID('b3a2dbf5-2c09-4792-b78c-00b548b70aeb')
+SR_NAMESPACE = uuid.UUID('f1911910-605e-11ed-a622-7085c2057a9d')
 
 async def decode_b64(b64: str) -> str:
     return base64.b64decode(b64).decode('utf-8')
 
+async def encode_b64(text: str) -> str:
+    return base64.b64encode(text.encode('utf-8')).decode('utf-8')
+
 async def decode_battle_id(b64: str) -> str:
     decoded = await decode_b64(b64)
     return str(uuid.uuid5(NAMESPACE, decoded[-52:]))
+
+async def decode_job_id(b64: str) -> str:
+    decoded = await decode_b64(b64)
+    return str(uuid.uuid5(SR_NAMESPACE, decoded))
 
 async def rgba_to_hex(color_dict: dict) -> str:
     r = round(color_dict['r'] * 255)

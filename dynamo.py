@@ -1,29 +1,49 @@
 import aiohttp, os
 from subprocess import call, STDOUT
 
-import data, statink, splatnet, nso
+import statink, splatnet, nso
 from database import UserDatabase
 from loader import Loader
+from tools.data import APP_VERSION
 
 db = UserDatabase()
+exempt_battle_ids = []
 
-async def find_missing_battles(username: str, mode: str = 'latest') -> tuple[list, list]:
-    """Finds missing battles byh comparing uploaded battles on Stat.ink with all battles on Splatnet"""
-    await splatnet.check_tokens_and_regenerate(username)
-    loader = Loader(f"Finding missing battles for {username}...", detailed=False).start()
+async def find_missing_battles(username: str, mode: str = 'latest', enable_loader: bool = True) -> tuple[list, list]:
+    """Finds missing battles by comparing uploaded battles on Stat.ink with all battles on Splatnet"""
+    # await splatnet.check_tokens_and_regenerate(username)
+    loader = Loader(f"Finding missing battles for {username}...", detailed=False, enabled=enable_loader).start()
     bullet_token, g_token, stat_ink_api_key = db[username][2], db[username][3], db[username][5]
-    uploaded_battles = await statink.fetch_uploaded_battles(stat_ink_api_key)
+    uploaded_battles = await statink.fetch_uploaded_battles(stat_ink_api_key, mode)
     all_battles = await splatnet.fetch_battle_ids(bullet_token, g_token, mode)
-    missing_battles = [i for i in all_battles if i not in uploaded_battles]
+    missing_battles = [i for i in all_battles if i not in uploaded_battles and i not in exempt_battle_ids]
+
     loader.stop()
     return missing_battles, all_battles
 
-async def upload_missing_battles(username: str, missing_battle_ids: list) -> None:
-    """Uploads battles to stat.ink from the list of missing battle IDs"""
-    loader = Loader("Uploading missing battles...", detailed=False).start()
-    for battle in missing_battle_ids:
-        await statink.upload_battle(username, battle)
+async def find_missing_jobs(username: str) -> tuple[list, dict]:
+    """Finds missing jobs by comparing uploaded jobs on Stat.ink with all jobs on Splatnet"""
+    # await splatnet.check_tokens_and_regenerate(username)
+    loader = Loader(f"Finding missing jobs for {username}...", detailed=False).start()
+    bullet_token, g_token, stat_ink_api_key = db[username][2], db[username][3], db[username][5]
+    uploaded_jobs = await statink.fetch_uploaded_jobs(stat_ink_api_key)
+    all_jobs = await splatnet.fetch_job_ids(bullet_token, g_token)
+    missing_jobs = [i for i in all_jobs if i not in uploaded_jobs]
     loader.stop()
+    return missing_jobs, all_jobs
+
+async def upload_missing_battles(username: str, missing_battle_ids: list, all_battles: dict) -> None:
+    """Uploads battles to stat.ink from the list of missing battle IDs"""
+    for battle in missing_battle_ids:
+        res = await statink.upload_battle(username, battle)
+        exempt_battle_ids.append(battle)
+
+async def upload_missing_jobs(username: str, missing_job_ids: list) -> None:
+    """Uploads jobs to stat.ink from the list of missing job IDs"""
+    # loader = Loader("Uploading missing jobs...", detailed=False).start()
+    for job in missing_job_ids:
+        await statink.upload_job(username, job)
+    # loader.stop()
 
 async def check_if_git_installed() -> bool:
     """Checks if git is installed on the system"""
@@ -45,7 +65,7 @@ async def check_for_updates() -> None:
             latest_version = await r.text()
     
     loader.stop()
-    if latest_version.strip() == data.APP_VERSION:
+    if latest_version.strip() == APP_VERSION:
         return
     print(f"An updated version of Dynamo is available! (v{latest_version.strip()})")
     if await check_if_git_installed() and await check_if_git_repo():
@@ -93,15 +113,22 @@ async def find_and_upload_missing_battles(username: str, check_all: bool = False
     """Finds and uploads all missing battles in the latest battles, and other modes if it's the first time the user is running the script"""
     modes = ["latest"]
     if check_all:
-        modes += ["regular", "bankara", 'xmatch', 'event', 'pbs'] 
-    missing_battles, all_battles = [], []
+        modes += ["regular", "bankara", 'x', 'event', 'private'] 
+    missing_battles, all_battles = [], {}
+    loader = Loader(f"Finding missing battles for {username}...", detailed=False).start()
     for mode in modes:
-        a, b = await find_missing_battles(username, mode)
+        loader.update_description( f"Finding missing {mode} battles for {username}")
+        a, b = await find_missing_battles(username, mode, enable_loader=False)
         missing_battles += a
-        all_battles += b
+        all_battles.update(b)
+    loader.stop()
     del a, b
     missing_battle_ids = [all_battles[i] for i in missing_battles]
     if missing_battle_ids:
-        await upload_missing_battles(username, missing_battle_ids)
-    else:
-        print("No missing battles found!")
+        await upload_missing_battles(username, missing_battle_ids, all_battles)
+
+async def find_and_upload_missing_jobs(username: str) -> None:
+    missing_jobs, all_jobs = await find_missing_jobs(username)
+    missing_job_ids = [all_jobs[i] for i in missing_jobs]
+    if missing_job_ids:
+        await upload_missing_jobs(username, missing_job_ids)
