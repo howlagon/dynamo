@@ -104,6 +104,16 @@ async def check_login(username: str | None = None) -> bool:
         return len(db) > 0
     return db[username] is not None
 
+async def get_stat_ink_key() -> str:
+    stat_ink_key = input("Enter the stat.ink API key you wish to use (or skip, not recommended): ")
+    while len(stat_ink_key) <= 43 and stat_ink_key.lower != "skip":
+        stat_ink_key = input("Invalid API key. Please try again: ")
+    
+    if stat_ink_key.lower() == "skip":
+        return None
+    
+    return stat_ink_key
+
 async def login() -> None:
     """Uses nso.LoginManager to walk the user through the login process, then automatically adds the tokens to the database"""
     login_manager = nso.LoginManager()
@@ -111,13 +121,15 @@ async def login() -> None:
     if has_token.lower() in ['y', 'yes']:
         session_token = input("Enter the session token of the user: ")
         print("Logging in with the session token... (this may take a while)")
-        username, session_token, bullet_token, g_token, user_data, stat_ink_key = await login_manager.login_with_token(session_token)
+        username, session_token, bullet_token, g_token, user_data, _ = await login_manager.login_with_token(session_token)
     else: #unfortunate
         print('Please consider reading through the "Token Generation" section in the README before proceeding.')
         print('Log in to the following url, right click the "Select this account" button, copy the link address, and then paste it here.')
         data = input(login_manager.login_url + "\n")
         print("Logging in... (this may take a while)")
-        username, session_token, bullet_token, g_token, user_data, stat_ink_key = await login_manager.login(data)
+        username, session_token, bullet_token, g_token, user_data, _ = await login_manager.login(data)
+
+    stat_ink_key = get_stat_ink_key()
 
     db[username] = {
         'session_token': session_token,

@@ -1,5 +1,5 @@
-import asyncio
-import config, database, dynamo, splatnet, statink, nso, loader
+import os
+import config, database, dynamo, splatnet, loader
 
 db = database.UserDatabase()
 
@@ -53,3 +53,7 @@ class User:
     async def set_statink_key(self):
         """Sets the user's stat.ink API key in the database"""
         self.statink_key = db[self.username][5]
+        if self.statink_key is None:
+            print(f"Stat.ink API key not found in the database for {self.username}")
+            print(f"Please run `python main.py -k {self.username}` to set the token.")
+            os._exit(1)

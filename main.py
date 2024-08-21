@@ -11,11 +11,11 @@ if __name__ == "__main__":
         print("Config file not found! Generating one now.")
         asyncio.run(config.generate_config_py())
 
-from dynamo import get_users, check_for_updates, login
+from dynamo import get_users, check_for_updates, login, get_stat_ink_key
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Dynamo")
-    parser.add_argument("-m", "--monitor", dest="monitor_time", action="store", required=False, nargs="?",
+    parser.add_argument("-m", "--monitor", action="store", dest="monitor_time", required=False, nargs="?",
                         help="Monitoring mode, every X seconds (default 300)", const=300)
     parser.add_argument("-s", "--skip-update", action="store_false", dest="check_updates", required=False,
                         help="Skip update checking")
@@ -29,6 +29,8 @@ def parse_args():
                         help="Add a new user account")
     parser.add_argument("-t", "--disable-threads", action="store_false", dest="threaded", required=False,
                         help="Disable threading (disables loading animations)")
+    parser.add_argument("-k", "--set-key", action="store", dest="set_key", required=False, nargs="?",
+                        help="Set stat.ink key for user")
     return parser.parse_args()
 
 async def main():
@@ -40,6 +42,14 @@ async def main():
     if parsed.login:
         await login()
         return
+    
+    if parsed.set_key is not None:
+        key = await get_stat_ink_key()
+        if key is not None:
+            usr = user.User(parsed.set_key)
+            await usr.set_statink_key(key)
+        return
+
 
     if parsed.username is not None:
         usernames = [parsed.username]
@@ -50,7 +60,7 @@ async def main():
                   check_vs=parsed.check_vs, check_salmon=parsed.check_salmon) for u in usernames
         ]
     if not usernames:
-        print("No users found in the database. Please add some before running the program.")
+        print("No users found in the database. Please run `python main.py -l` to add a user.")
         return
     if len(usernames) > 1:
         config.params['threaded'] = False
