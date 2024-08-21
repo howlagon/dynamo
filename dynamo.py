@@ -104,7 +104,7 @@ async def check_login(username: str | None = None) -> bool:
         return len(db) > 0
     return db[username] is not None
 
-async def get_stat_ink_key() -> str:
+async def get_stat_ink_key(username) -> None:
     stat_ink_key = input("Enter the stat.ink API key you wish to use (or skip, not recommended): ")
     while len(stat_ink_key) != 43 and stat_ink_key.lower != "skip":
         stat_ink_key = input("Invalid API key. Please try again: ")
@@ -112,7 +112,8 @@ async def get_stat_ink_key() -> str:
     if stat_ink_key.lower() == "skip":
         return None
     
-    return stat_ink_key
+    db = UserDatabase()
+    await db.update(username, "statink_key", stat_ink_key)
 
 async def login() -> None:
     """Uses nso.LoginManager to walk the user through the login process, then automatically adds the tokens to the database"""
@@ -129,7 +130,7 @@ async def login() -> None:
         print("Logging in... (this may take a while)")
         username, session_token, bullet_token, g_token, user_data, _ = await login_manager.login(data)
 
-    stat_ink_key = await get_stat_ink_key()
+    stat_ink_key = await get_stat_ink_key(username)
 
     db[username] = {
         'session_token': session_token,

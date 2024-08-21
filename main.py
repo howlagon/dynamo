@@ -44,7 +44,7 @@ async def main():
         return
     
     if parsed.set_key is not None:
-        key = await get_stat_ink_key()
+        key = await get_stat_ink_key(parsed.set_key)
         if key is not None:
             usr = user.User(parsed.set_key)
             await usr.set_statink_key(key)

@@ -157,6 +157,11 @@ class UserDatabase(Database):
             else:
                 await database.execute(f"INSERT INTO {self.table_name} VALUES (?, ?, ?, ?, ?, ?)", (username, session_token, bullet_token, g_token, user_data, statink_key,))
             await database.commit()
+    
+    async def update(self, username, key, value) -> None:
+        async with self as database:
+            await database.execute(f"UPDATE {self.table_name} SET {key}=? WHERE username=?", (value, username,))
+            await database.commit()
 
     async def contains(self, username):
         async with self as database:
