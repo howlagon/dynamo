@@ -1,9 +1,10 @@
 import aiohttp, os
 from subprocess import call, STDOUT
 
-import data, statink, splatnet, nso
+import statink, splatnet, nso
 from database import UserDatabase
 from loader import Loader
+from tools.data import APP_VERSION
 
 db = UserDatabase()
 exempt_battle_ids = []
@@ -64,7 +65,7 @@ async def check_for_updates() -> None:
             latest_version = await r.text()
     
     loader.stop()
-    if latest_version.strip() == data.APP_VERSION:
+    if latest_version.strip() == APP_VERSION:
         return
     print(f"An updated version of Dynamo is available! (v{latest_version.strip()})")
     if await check_if_git_installed() and await check_if_git_repo():

@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Literal
 
 from database import UserDatabase, Cache
-from data import APP_VERSION
+from tools.data import APP_VERSION
 from config import params, testrun
 import tools.utils as utils
 import tools.statink.versus as vs

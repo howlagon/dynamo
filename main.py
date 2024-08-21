@@ -1,11 +1,11 @@
 import os, json, asyncio, traceback
-import config, data
-
+import config
+from tools.data import APP_VERSION
 from signal import SIGINT, SIGTERM
 
 first_time_setup = False
 if __name__ == "__main__":
-    print(f"{'Freaky ' if config.params['freaky'] else ''}Dynamo v{data.APP_VERSION}")
+    print(f"{'Freaky ' if config.params['freaky'] else ''}Dynamo v{APP_VERSION}")
     if not os.path.exists('config.json'):
         first_time_setup = True
         print("Config file not found! Generating one now.")

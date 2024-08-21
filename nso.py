@@ -12,7 +12,7 @@ from bs4 import BeautifulSoup
 from urllib.parse import urlencode
 from sys import exit
 
-from data import APP_VERSION
+from tools.data import APP_VERSION
 
 SPLATNET_URL: str = "https://api.lp1.av5ja.srv.nintendo.net"
 USER_AGENT: str   = 'Mozilla/5.0 (Linux; Android 11; Pixel 5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.61 Mobile Safari/537.36'
