@@ -106,7 +106,7 @@ async def check_login(username: str | None = None) -> bool:
 
 async def get_stat_ink_key() -> str:
     stat_ink_key = input("Enter the stat.ink API key you wish to use (or skip, not recommended): ")
-    while len(stat_ink_key) <= 43 and stat_ink_key.lower != "skip":
+    while len(stat_ink_key) != 43 and stat_ink_key.lower != "skip":
         stat_ink_key = input("Invalid API key. Please try again: ")
     
     if stat_ink_key.lower() == "skip":
