@@ -28,8 +28,6 @@ class User:
             await self.set_statink_key()
         
         await self.mainloop()
-        self.loader = loader.Loader(f"Sleeping for", count=self.sleep_time, timeout=1, units="seconds")
-        self.loader.start()
 
     async def mainloop(self) -> None:
         for function in self.loop:

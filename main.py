@@ -1,5 +1,5 @@
 import os, json, asyncio, traceback, argparse
-import config, user
+import config, user, loader
 from tools.data import APP_VERSION
 from signal import SIGINT, SIGTERM
 
@@ -77,10 +77,10 @@ async def main():
             await asyncio.create_task(u.start())
         if parsed.monitor_time is None:
             break
+        load = loader.Loader(desc=f"Sleeping for", count=config.params['refresh'], timeout=1, units="seconds")
         await asyncio.sleep(delay=config.params['refresh'])
-        for u in users:
-            u.loader.stop()
-            del u.loader
+        load.stop()
+        del load
 
 if __name__ == '__main__':
     loop = asyncio.get_event_loop()
@@ -90,5 +90,7 @@ if __name__ == '__main__':
         print("\nExiting...")
     except Exception as e:
         traceback.print_exc()
+    else:
+        print("Exiting... run `python main.py -M` to monitor.")
     finally:
         os._exit(0)
