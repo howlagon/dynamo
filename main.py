@@ -78,6 +78,7 @@ async def main():
         if parsed.monitor_time is None:
             break
         load = loader.Loader(desc=f"Sleeping for", count=config.params['refresh'], timeout=1, units="seconds")
+        load.start()
         await asyncio.sleep(delay=config.params['refresh'])
         load.stop()
         del load
