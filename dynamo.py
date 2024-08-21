@@ -129,7 +129,7 @@ async def login() -> None:
         print("Logging in... (this may take a while)")
         username, session_token, bullet_token, g_token, user_data, _ = await login_manager.login(data)
 
-    stat_ink_key = get_stat_ink_key()
+    stat_ink_key = await get_stat_ink_key()
 
     db[username] = {
         'session_token': session_token,
