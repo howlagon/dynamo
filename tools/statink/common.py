@@ -50,4 +50,4 @@ async def find_statink_special(special_id: str) -> str:
 async def find_statink_stage(stage_id: str) -> str:
     stage = await utils.decode_b64(stage_id)
     return int(stage.replace("CoopStage-", "") \
-                      .replace("VsStage_", ""))
+                      .replace("VsStage-", ""))

@@ -4,7 +4,7 @@ import config, database, dynamo, splatnet, statink, nso, loader
 db = database.UserDatabase()
 
 class User:
-    def __init__(self, username: str, sleep_time: int = 0, check_all: bool = True, check_vs: bool = True, check_salmon: bool = True) -> None:
+    def __init__(self, username: str, sleep_time: int = 300, check_all: bool = True, check_vs: bool = True, check_salmon: bool = True) -> None:
         self.username: str = username
         self.bullet_token: str | None = None
         self.g_token: str | None = None
@@ -28,7 +28,7 @@ class User:
             await self.set_statink_key()
         
         await self.mainloop()
-        self.loader = loader.Loader(f"Sleeping for", count=self.sleep_time, timeout=1)
+        self.loader = loader.Loader(f"Sleeping for", count=self.sleep_time, timeout=1, units="seconds")
         self.loader.start()
 
     async def mainloop(self) -> None:

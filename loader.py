@@ -10,7 +10,8 @@ from config import params
 class Loader:
     def __init__(
             self, desc: str = "Loading...", end: str = "", timeout: float = 0.1, step_type: int = 0, 
-            check_type: int = 2, detailed: bool | None = None, count: int = 0, enabled: bool = True
+            check_type: int = 2, detailed: bool | None = None, count: int = 0, enabled: bool = True,
+            units: str | None = None
         ) -> None:
         """A loader-like context manager
 
@@ -23,6 +24,7 @@ class Loader:
             detailed (bool | None, optional): Whether to show detailed output. Defaults to None.
             count (int, optional): The count to display. Defaults to 0.
             enabled (bool, optional): Defaults to True.
+            units (str | None, optional): The units to be counting down. Defaults to None (doesn't show).
         """
         self.desc = desc
         self.end = end
@@ -31,6 +33,7 @@ class Loader:
         self.count = True if count else False
         self.count_int = count
         self.enabled = enabled
+        self.units = units
 
         if params['threaded']:
             self._thread = Thread(target=self._animate, daemon=True)
@@ -54,18 +57,20 @@ class Loader:
         if self.detailed == False and params['detailed']:
             return self
         if not params['threaded']:
-            print(f"{self.desc}{f' {self.count_int}' if self.count else ''}", end="", flush=True)
+            print(f"… {self.desc}{f' {self.count_int}' if self.count else ''}{f' {self.units if self.units is not None else ''}'}", end=params['print_end'], flush=True)
             return self
         self._thread.start()
         return self
 
     def _animate(self):
+        if self.done:
+            del self
         if params["headless"] or not self.enabled:
             return
         for c in cycle(self.steps):
             if self.done:
                 break
-            print(f"\r{c} {self.desc}{f' {self.count_int}...' if self.count else ''}", flush=True, end="")
+            print(f"\r{c} {self.desc}{f' {self.count_int}...' if self.count else ''}{f' {self.units if self.units is not None else ''}'}", flush=True, end=params['print_end'])
             if self.count_int:
                 self.count_int -= 1
             sleep(self.timeout)
@@ -74,10 +79,10 @@ class Loader:
         self.start()
 
     def stop(self):
-        if params["headless"] or not self.enabled:
+        if params["headless"] or not self.enabled or params['print_end'] == '\n':
             return
         self.done = True
-        print(f"\r{self.check} {self.desc}{f' {self.count_int}' if self.count else ''}", flush=True, end="")
+        print(f"\r{self.check} {self.desc}{f' {self.count_int}' if self.count else ''}{f' {self.units if self.units is not None else ''}'}", flush=True, end=params['print_end'])
         if self.detailed and not params['detailed']:
             return
         if self.detailed == False and params['detailed']:
@@ -96,4 +101,7 @@ class Loader:
     def update_description(self, desc: str):
         self.desc = desc
         cols = get_terminal_size((80, 20)).columns
-        print("\r" + " " * cols, end="", flush=True)
+        if params["threaded"]:
+            print("\r" + " " * cols, end="", flush=True)
+        if not params['threaded']:
+            print(f"… {self.desc}{f' {self.count_int}...' if self.count else ''}{f' {self.units if self.units is not None else ''}'}", flush=True, end=params['print_end'])

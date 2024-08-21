@@ -52,7 +52,10 @@ async def find_rank_before(username: str, previous_history_detail: str | None) -
     matches = await Cache.graphql(bullet_token, g_token, 'latest', return_json=True)
     # wacky list comprehension
     battles = [node['historyDetails']['nodes'] for node in matches['data']['latestBattleHistories']['historyGroups']['nodes']][0]
-    battle = [battle for battle in battles if battle['id'] == previous_history_detail][0]
+    try:
+        battle = [battle for battle in battles if battle['id'] == previous_history_detail][0]
+    except IndexError:
+        return None
     rank = await split_rank(battle['udemae'])
     return rank
 

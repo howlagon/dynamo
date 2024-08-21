@@ -6,7 +6,7 @@ from typing import Literal
 
 from database import UserDatabase, Cache
 from tools.data import APP_VERSION
-from config import params, testrun
+from config import params
 import tools.utils as utils
 import tools.statink.versus as vs
 import tools.statink.salmon as salmon
@@ -16,7 +16,7 @@ async def format_request(payload: dict) -> dict:
     payload['agent'] = 'Dynamo'
     payload['agent_version'] = APP_VERSION
     payload['automated'] = 'yes'
-    payload['test'] = "yes" if testrun else "no"
+    payload['test'] = "yes" if params["testrun"] else "no"
 
     return payload
 
@@ -85,13 +85,14 @@ async def format_battle(username: str, battle_data: dict) -> dict:
     #### series, open ####
     if lobby_mode in ['bankara_open', 'bankara_challenge']:
         rank_before = await vs.find_rank_before(username, previous_history_detail)
-        payload['rank_before'] = rank_before[0].lower()
-        if len(rank_before) > 1:
-            payload['rank_before_s_plus'] = rank_before[1]
-        rank_after = await vs.find_rank_after(username, data['id'])
-        payload['rank_after'] = rank_after[0].lower()
-        if len(rank_after) > 1:
-            payload['rank_after_s_plus'] = rank_after[1]
+        if rank_before is not None: # holy nesting
+            payload['rank_before'] = rank_before[0].lower()
+            if len(rank_before) > 1:
+                payload['rank_before_s_plus'] = rank_before[1]
+            rank_after = await vs.find_rank_after(username, data['id'])
+            payload['rank_after'] = rank_after[0].lower()
+            if len(rank_after) > 1:
+                payload['rank_after_s_plus'] = rank_after[1]
     
     #### open ####
     if lobby_mode in ['bankara_open']:
@@ -199,11 +200,11 @@ async def upload(statink_key: str, battle_id: str, payload: dict, type: Literal[
     async with aiohttp.ClientSession() as session:
         async with session.post(url, headers=headers, json=payload) as r:
             data = await r.json()
-            if testrun and r.status == 200:
+            if params["testrun"] and r.status == 200:
                 print(f"{type} validated succsesfully! ID: {battle_id}")
             elif r.status not in [200, 201]:
                 print(f"Error uploading {type.lower()}. ID: {battle_id}\nMessage: {await r.text()}")
-                print(json.dumps(payload, indent=4))
+                # print(json.dumps(payload, indent=4)) # todo: rewrite into a proper crash dumper
             elif data["created_at"]["time"] < time() - 30:
                 print(f"{type} already uploaded: {data['url']}")
             else:

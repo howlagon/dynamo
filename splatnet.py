@@ -154,8 +154,8 @@ async def view_coop(coopHistoryDetailId: str, bullet_token: str, g_token: str) -
 async def process_request(bullet_token, **kwargs) -> aiohttp.ClientResponse:
     async with aiohttp.ClientSession() as session:
         async with session.post(f'https://api.lp1.av5ja.srv.nintendo.net/api/graphql', headers=kwargs['headers'] if 'headers' in kwargs else await generate_headers(bullet_token), json=kwargs['json'], cookies=kwargs['cookies']) as r:
-            if r.status >= 400:
-                print(f"Error: {r.status}\n{await r.text()}")
+            # if r.status >= 400:
+            #     print(f"Error: {r.status}\n{await r.text()}")
             if kwargs.get('return_json') is not None and kwargs['return_json']:
                 return await r.json()
             return r

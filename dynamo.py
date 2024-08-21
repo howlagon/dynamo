@@ -1,5 +1,6 @@
 import aiohttp, os
-from subprocess import call, STDOUT
+from subprocess import call, STDOUT, Popen, PIPE
+from packaging.version import Version
 
 import statink, splatnet, nso
 from database import UserDatabase
@@ -45,6 +46,11 @@ async def upload_missing_jobs(username: str, missing_job_ids: list) -> None:
         await statink.upload_job(username, job)
     # loader.stop()
 
+async def get_git_branch() -> str:
+    process = Popen(["git", "branch", "--show-current"], stdout=PIPE)
+    branch_name, branch_error = process.communicate()
+    return branch_name.decode().strip()
+
 async def check_if_git_installed() -> bool:
     """Checks if git is installed on the system"""
     return call(["git", "--version"], stdout=open(os.devnull, 'w'), stderr=STDOUT) == 0
@@ -53,11 +59,23 @@ async def check_if_git_repo() -> bool:
     """Checks if the current directory is a git repository"""
     return os.path.exists(".git")
 
+async def is_dev(is_git: bool) -> bool:
+    """Checks if the script is running on the dev branch"""
+    if not is_git: return False
+    branch = await get_git_branch()
+    return branch == "dev"
+
+
 async def check_for_updates() -> None:
     """Checks if there is an updated version of the script available on Github"""
     loader = Loader("Checking for updates...", detailed=False).start()
+    url = "https://raw.githubusercontent.com/howlagon/dynamo/main/version"
+    is_git = await check_if_git_installed() and await check_if_git_repo()
+    if await is_dev(is_git):
+        url = "https://raw.githubusercontent.com/howlagon/dynamo/dev/version"
+        
     async with aiohttp.ClientSession() as session:
-        async with session.get("https://raw.githubusercontent.com/howlagon/dynamo/main/version") as r:
+        async with session.get(url) as r:
             if r.status != 200:
                 loader.stop()
                 print("Failed to check for updates!")
@@ -65,10 +83,11 @@ async def check_for_updates() -> None:
             latest_version = await r.text()
     
     loader.stop()
-    if latest_version.strip() == APP_VERSION:
+    if Version(APP_VERSION) >= Version(latest_version.strip()):
         return
+        
     print(f"An updated version of Dynamo is available! (v{latest_version.strip()})")
-    if await check_if_git_installed() and await check_if_git_repo():
+    if is_git:
         update = input("Would you like to update Dynamo? (Y/n): ")
         if update.lower() in ['y', 'yes', '', ' ']:
             call(["git", "pull"])
@@ -91,12 +110,15 @@ async def login() -> None:
     has_token = input("Do you have the session token of the user you want to login as? (y/N) ")
     if has_token.lower() in ['y', 'yes']:
         session_token = input("Enter the session token of the user: ")
-        login_manager.login_with_token(session_token)
-        return
-    print('Please consider reading through the "Token Generation" section in the README before proceeding.')
-    print('Log in to the following url, right click the "Select this account" button, copy the link address, and then paste it here.')
-    data = input(login_manager.login_url + "\n")
-    username, session_token, bullet_token, g_token, user_data, stat_ink_key = await login_manager.login(data)
+        print("Logging in with the session token... (this may take a while)")
+        username, session_token, bullet_token, g_token, user_data, stat_ink_key = await login_manager.login_with_token(session_token)
+    else: #unfortunate
+        print('Please consider reading through the "Token Generation" section in the README before proceeding.')
+        print('Log in to the following url, right click the "Select this account" button, copy the link address, and then paste it here.')
+        data = input(login_manager.login_url + "\n")
+        print("Logging in... (this may take a while)")
+        username, session_token, bullet_token, g_token, user_data, stat_ink_key = await login_manager.login(data)
+
     db[username] = {
         'session_token': session_token,
         'bullet_token': bullet_token,
@@ -121,6 +143,7 @@ async def find_and_upload_missing_battles(username: str, check_all: bool = False
         a, b = await find_missing_battles(username, mode, enable_loader=False)
         missing_battles += a
         all_battles.update(b)
+    loader.update_description(f"Finding missing battles for {username}...")
     loader.stop()
     del a, b
     missing_battle_ids = [all_battles[i] for i in missing_battles]

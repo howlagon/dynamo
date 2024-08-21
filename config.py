@@ -8,8 +8,6 @@ async def generate_config_py():
     # freaky = input('Are you a 𝒻𝓇𝑒𝒶𝓀? (y/N) ') # option removed v0.1.0, still available by manually editing config
 
     data = {
-        'refresh': 60,
-        'threaded': True if threaded.lower() == 'y' or threaded == '' else False,
         'flush_prints': True if flush_prints.lower() == 'y' else False if flush_prints == '' else False,
         'detailed': True if detailed.lower() == 'y' else False if detailed == '' else False,
         'freaky': False,
@@ -25,11 +23,14 @@ try:
     params = json.load(open('config.json'))
 except FileNotFoundError:
     params = {
-        'refresh': 60,
         'threaded': True,
         'flush_prints': False,
         'detailed': False,
-        'freaky': False
+        'freaky': False,
+        'headless': False
     }
 
-testrun = False
+params['refresh'] = 300
+params['threaded'] = True
+params['testrun'] = False
+params['print_end'] = ''
