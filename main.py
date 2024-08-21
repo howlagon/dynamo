@@ -1,5 +1,7 @@
-import os, json, asyncio
+import os, json, asyncio, traceback
 import config, data
+
+from signal import SIGINT, SIGTERM
 
 first_time_setup = False
 if __name__ == "__main__":
@@ -20,14 +22,21 @@ async def main():
         print("No users found in the database. Please add some before running the program.")
         return
 
-    for u in users:
-        await u.start()
-
     while True:
         for u in users:
-            await u.mainloop()
-        await asyncio.sleep(300)
+            await asyncio.create_task(u.start())
+        await asyncio.sleep(delay=config.params['refresh'])
+        for u in users:
+            u.loader.stop()
+            del u.loader
 
 if __name__ == '__main__':
-    asyncio.run(main())
-    os._exit(0)
+    loop = asyncio.get_event_loop()
+    try:
+        loop.run_until_complete(main())
+    except KeyboardInterrupt:
+        print("\nExiting...")
+    except Exception as e:
+        traceback.print_exc()
+    finally:
+        os._exit(0)

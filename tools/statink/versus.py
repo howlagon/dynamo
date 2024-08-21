@@ -34,14 +34,6 @@ async def find_statink_mode_rule(rule: str) -> str:
         case 'CLAM': return 'asari' # so cool
         case 'TRI_COLOR': return 'tricolor'
 
-async def find_statink_stage(stage: str) -> str:
-    match stage:
-        case _: return stage.lower() \
-                             .replace(' ', '_') \
-                             .replace('.', '') \
-                             .replace("'", '') \
-                             .replace('&', 'and')
-
 async def find_me_from_players(players: list) -> dict | None:
     for player in players:
         if player['isMyself']: return player
@@ -142,8 +134,8 @@ async def format_player(player_dict: dict, rank_in_team: int) -> dict:
             'death': player_dict['result']['death'],
             'special': player_dict['result']['special'],
         })
-    if player_dict['result']['noroshiTry'] is not None:
-        new_dict['signal'] = player_dict['result']['noroshiTry']
+        if player_dict['result']['noroshiTry'] is not None:
+            new_dict['signal'] = player_dict['result']['noroshiTry']
     return new_dict
 
 async def format_gear_structure(gear_dict: dict) -> dict:

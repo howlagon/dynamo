@@ -1,9 +1,11 @@
 import aiohttp, json
+from time import time
 import nso, tools.utils as utils
 from database import UserDatabase
 from loader import Loader
 
 db = UserDatabase()
+token_refresh_time = {}
 
 async def generate_tokens(username) -> dict:
     with Loader(f"Regenerating tokens for {username}..."):
@@ -19,6 +21,8 @@ async def check_tokens(username) -> bool:
     return response.status == 200
 
 async def check_tokens_and_regenerate(username) -> bool:
+    if username in token_refresh_time and time() - token_refresh_time[username] < 600:
+        return db[username][2], db[username][3]
     if not await check_tokens(username): 
         await generate_tokens(username)
         return await check_tokens(username)
@@ -150,15 +154,16 @@ async def view_coop(coopHistoryDetailId: str, bullet_token: str, g_token: str) -
 async def process_request(bullet_token, **kwargs) -> aiohttp.ClientResponse:
     async with aiohttp.ClientSession() as session:
         async with session.post(f'https://api.lp1.av5ja.srv.nintendo.net/api/graphql', headers=kwargs['headers'] if 'headers' in kwargs else await generate_headers(bullet_token), json=kwargs['json'], cookies=kwargs['cookies']) as r:
+            if r.status >= 400:
+                print(f"Error: {r.status}\n{await r.text()}")
             if kwargs.get('return_json') is not None and kwargs['return_json']:
                 return await r.json()
             return r
 
 async def fetch_battle_ids(bullet_token: str, g_token: str, modes: str | list) -> dict:
-    loader = Loader("Fetching battle IDs...", detailed=True).start()
-    if isinstance(modes, list) and any([i not in ['regular', 'bankara', 'x', 'event', 'private', 'latest'] for i in modes]):
+    if isinstance(modes, list) and any([i not in ['regular', 'bankara', 'x', 'event', 'private', 'latest', 'adaptive'] for i in modes]):
         raise ValueError('Invalid mode(s) provided')
-    elif isinstance(modes, str) and modes not in ['regular', 'bankara', 'x', 'event', 'private', 'all', 'latest']:
+    elif isinstance(modes, str) and modes not in ['regular', 'bankara', 'x', 'event', 'private', 'all', 'latest', 'adaptive']:
         raise ValueError('Invalid mode provided')
     if modes == 'all':
         modes = ['regular', 'bankara', 'x', 'event', 'private']
@@ -173,23 +178,24 @@ async def fetch_battle_ids(bullet_token: str, g_token: str, modes: str | list) -
     for node in battle_nodes:
         battle_histories.extend(node['historyDetails']['nodes'])
     for battle in battle_histories:
+        if battle["judgement"] == "DEEMED_LOSE":
+            continue
         battle_id = await utils.decode_battle_id(battle['id'])
         battle_ids[battle_id] = battle['id'] # such good code i know!
-    loader.stop()
     return battle_ids
 
-async def fetch_job_ids(bullet_token: str, g_token: str, modes: str | list) -> dict:
+async def fetch_job_ids(bullet_token: str, g_token: str) -> dict:
     loader = Loader("Fetching job IDs...", detailed=True).start()
     job_ids = {}
     job_histories = []
     job_nodes = []
-    response = graphql(bullet_token, g_token, 'coop', return_json=True)
-    job_nodes.extend(response['data']['coop']['jobHistories']['nodes'])
+    response = await graphql(bullet_token, g_token, 'coop', return_json=True)
+    job_nodes.extend(response['data']['coopResult']['historyGroups']['nodes'])
     for node in job_nodes:
-        job_histories.extend(node['jobDetails']['nodes'])
+        job_histories.extend(node['historyDetails']['nodes'])
     
     for job in job_histories:
-        job_id = await utils.decode_battle_id(job['id'])
+        job_id = await utils.decode_job_id(job['id'])
         job_ids[job_id] = job['id']
     loader.stop()
     return job_ids

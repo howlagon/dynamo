@@ -327,7 +327,7 @@ async def _get_bullet_token(g_token: str, user_data: dict) -> str:
 
     async with aiohttp.ClientSession() as session:
         async with session.post(f'{SPLATNET_URL}/api/bullet_tokens', headers=headers, cookies=cookies) as r:
-            if r.status >= 300: print(await r.text())
+            # if r.status >= 300: print(await r.text())
             match r.status:
                 case 204:
                     print("User has not played online before.")
