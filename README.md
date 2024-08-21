@@ -6,16 +6,13 @@ Name given by [ivySIDEUP](https://twitter.com/ivySIDEUP), the #1 Dynamo Roller i
 ### Current Features
  - [x] Login flow with automatic token generation
  - [x] Ability to parse, format, and upload Splatoon 3 battle stats to stat.ink
- - [x] Support for Anarchy, X, Challenges, Splatfests, Tricolor, and Private Battles
+ - [x] Support for Anarchy, X, Challenges, Splatfests, Tricolor, Private Battles, and Salmon Run: Next Wave
  - [x] Support for (almost) all GraphQL queries, allowing you to get data from anything Splatnet allows you to see
+ - [x] Multiple account support
 
 ### Planned Features
- - [ ] Multiple user support
- - [ ] Salmon Run job support
- - [ ] Big Run support
+ - [ ] Eggstra Work support
  - [ ] Big Big Run support (starting in Splatoon 3 v8.0.0)
- - [ ] Real time monitoring
- - [ ] CLI argument support
  - [ ] Ways to switch f token generation
  - [ ] Website view, allowing you to start/stop logging for specific users
 
