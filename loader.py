@@ -4,6 +4,7 @@ from itertools import cycle
 from shutil import get_terminal_size
 from threading import Thread
 from time import sleep
+from sys import stdout
 
 from config import params
 
@@ -70,7 +71,8 @@ class Loader:
         for c in cycle(self.steps):
             if self.done:
                 break
-            print(f"\r{c} {self.desc}{f' {self.count_int}...' if self.count else ''}{f' {self.units if self.units is not None else ''}'}", flush=True, end=params['print_end'])
+            stdout.write('\x1b[2K')
+            print(f"\r{c} {self.desc}{f' {self.count_int}' if self.count else ''}{f' {self.units}...' if self.units is not None else ''}", flush=True, end=params['print_end'])
             if self.count_int:
                 self.count_int -= 1
             sleep(self.timeout)
@@ -89,7 +91,7 @@ class Loader:
             return
         cols = get_terminal_size((80, 20)).columns
         line_start = "\n"
-        if params['flush_prints']:
+        if not params['flush_prints']:
             print("\r" + " " * cols, end="", flush=True)
             line_start = "\r"
         print(f"{line_start}{self.end}", flush=True, end="\n" if self.end else f"\r")

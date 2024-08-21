@@ -106,7 +106,10 @@ async def get_anarchy_power_before(username, previous_history_detail: str | None
     db = UserDatabase()
     bullet_token, g_token = db[username][2], db[username][3]
     previous_battle = await Cache.view_battle(previous_history_detail, bullet_token, g_token)
-    return previous_battle['data']['vsHistoryDetail']['bankaraMatch']['bankaraPower']['power']
+    try:
+        return previous_battle['data']['vsHistoryDetail']['bankaraMatch']['bankaraPower']['power']
+    except (TypeError, KeyError):
+        return None
 
 async def format_player(player_dict: dict, rank_in_team: int) -> dict:
     new_dict = {
