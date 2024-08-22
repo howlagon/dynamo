@@ -82,13 +82,22 @@ async def get_challenge_win_loss(username, history_detail: str, mode: str):
     db = UserDatabase()
     bullet_token, g_token = db[username][2], db[username][3]
     matches = await graphql(bullet_token, g_token, f'{mode}', return_json=True)
-    nodes = matches['data'][[key for key in matches['data'].keys() if 'Histories' in key][0]]['historyGroups']['nodes']
+    nodes: list = matches['data'][[key for key in matches['data'].keys() if 'Histories' in key][0]]['historyGroups']['nodes']
     for node in nodes:
-        for battle in node['historyDetails']['nodes']:
-            if history_detail == battle['id']:
-                break
-    measurement = node['bankaraMatchChallenge' if mode == 'bankara' else 'xMatchMeasurement']
-    return measurement['winCount'], measurement['loseCount']
+        if history_detail in [battle['id'] for battle in node['historyDetails']['nodes']]:
+            current_node: list = node['historyDetails']['nodes']
+            break
+    wins = 0
+    losses = 0
+    # very hacky
+    for battle in current_node[::-1]:
+        if battle['judgement'] == 'WIN':
+            wins += 1
+        elif battle['judgement'] == 'LOSE':
+            losses += 1
+        if battle['id'] == history_detail:
+            break
+    return wins, losses
 
 async def get_x_power_after(username, history_detail: str):
     db = UserDatabase()
@@ -96,10 +105,10 @@ async def get_x_power_after(username, history_detail: str):
     matches = await graphql(bullet_token, g_token, 'xmatch', return_json=True)
     nodes = matches['data'][[key for key in matches['data'].keys() if 'Histories' in key][0]]['historyGroups']['nodes']
     for node in nodes:
-        for battle in node['historyDetails']['nodes']:
-            if history_detail == battle['id']:
-                break
-    return node['xMatchMeasurement']['xPowerAfter']
+        if history_detail in [battle['id'] for battle in node['historyDetails']['nodes']]:
+            if node['xMatchMeasurement']['isInitial']:
+                return None
+            return node['xMatchMeasurement']['xPowerAfter']
 
 async def get_anarchy_power_before(username, previous_history_detail: str | None):
     if previous_history_detail is None: return None
@@ -134,9 +143,9 @@ async def format_player(player_dict: dict, rank_in_team: int) -> dict:
 
     if player_dict['result'] is not None:
         new_dict.update({
-            'kill': player_dict['result']['kill'],
+            'kill': player_dict['result']['kill'] - player_dict['result']['assist'],
             'assist': player_dict['result']['assist'],
-            'kill_or_assist': player_dict['result']['kill'] + player_dict['result']['assist'],
+            'kill_or_assist': player_dict['result']['kill'],
             'death': player_dict['result']['death'],
             'special': player_dict['result']['special'],
         })

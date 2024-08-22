@@ -148,7 +148,7 @@ async def find_and_upload_missing_battles(username: str, check_all: bool = False
     """Finds and uploads all missing battles in the latest battles, and other modes if it's the first time the user is running the script"""
     modes = ["latest"]
     if check_all:
-        modes += ["regular", "bankara", 'x', 'event', 'private'] 
+        modes = ["regular", "bankara", 'x', 'event', 'private'] 
     missing_battles, all_battles = [], {}
     loader = Loader(f"Finding missing battles for {username}...", detailed=False).start()
     for mode in modes:

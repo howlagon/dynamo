@@ -41,9 +41,9 @@ async def format_battle(username: str, battle_data: dict) -> dict:
         'knockout': None,
         'rank_in_team': players.index(next(filter(lambda n: n.get('isMyself') == True, players))) + 1,
         'medals': [award['name'] for award in data['awards']],
-        'kill': me['result']['kill'],
+        'kill': me['result']['kill'] - me['result']['assist'],
         'assist': me['result']['assist'],
-        'kill_or_assist': me['result']['kill'] + me['result']['assist'],
+        'kill_or_assist': me['result']['kill'],
         'death': me['result']['death'],
         'special': me['result']['special'],
         'inked': me['paint']
