@@ -22,7 +22,30 @@ Name given by [ivySIDEUP](https://twitter.com/ivySIDEUP), the #1 Dynamo Roller i
 3. Download and install [Poetry](https://python-poetry.org/docs/#installing-with-pipx) (`pipx install poetry`)
 4. (Windows only) install [Git](https://git-scm.com/download/win), if not already installed
 5. Clone the script via terminal by running `git clone https://github.com/howlagon/dynamo -o dynamo`.
-6. Change directory into Dynamo (`cd dynamo`) 
+6. Change directory into Dynamo (`cd dynamo`)
+7. Install dependencies `poetry install`
+
+## Usage
+`poetry run python main.py [args]`
+```
+usage: main.py [-h] [-m [MONITOR_TIME]] [-s] [-u [USERNAME]] [-sb] [-ssr] [-l] [-t] [-p] [-k [USER]]
+
+options:
+  -h, --help            show this help message and exit
+  -m [MONITOR_TIME], --monitor [MONITOR_TIME]
+                        Monitoring mode, every X seconds (default 300)
+  -s, --skip-update     Skip update checking
+  -u [USERNAME], --user [USERNAME]
+                        Specify a single user to monitor
+  -sb, --skip-battles   Skip checking multiplayer battles
+  -ssr, --skip-salmon   Skip checking Salmon Run jobs
+  -l, --login           Add a new user account
+  -t, --disable-threads
+                        Disable threading (disables loading animations)
+  -p, --disable-prints  Completely disable all print statements, except for uploads, errors, and important info
+  -k [USER], --set-key [USER]
+                        Set stat.ink key for user
+```
 
 ## Token Generation
 For this program to properly function, it must periodically contact Nintendo's servers and generate two [access tokens](https://en.wikipedia.org/wiki/Access_token), a `g_token` and a `bulletToken`. Currently, the only way to generate these tokens with Dynamo is automatic. 

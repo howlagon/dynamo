@@ -10,7 +10,6 @@ async def generate_config_py():
         'flush_prints': True if flush_prints.lower() == 'y' else False if flush_prints == '' else False,
         'detailed': True if detailed.lower() == 'y' else False if detailed == '' else False,
         'freaky': False,
-        'headless': False
     }
 
     with open('config.json', 'w') as fp:
@@ -24,11 +23,11 @@ except FileNotFoundError:
     params = {
         'flush_prints': False,
         'detailed': False,
-        'freaky': False,
-        'headless': False
+        'freaky': False
     }
 
 params['refresh'] = 300
 params['threaded'] = True
 params['testrun'] = False
 params['print_end'] = ''
+params['headless'] = False

@@ -14,7 +14,7 @@ if __name__ == "__main__":
 from dynamo import get_users, check_for_updates, login, get_stat_ink_key
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Dynamo")
+    parser = argparse.ArgumentParser()
     parser.add_argument("-m", "--monitor", action="store", dest="monitor_time", required=False, nargs="?",
                         help="Monitoring mode, every X seconds (default 300)", const=300)
     parser.add_argument("-s", "--skip-update", action="store_false", dest="check_updates", required=False,
@@ -29,13 +29,16 @@ def parse_args():
                         help="Add a new user account")
     parser.add_argument("-t", "--disable-threads", action="store_false", dest="threaded", required=False,
                         help="Disable threading (disables loading animations)")
-    parser.add_argument("-k", "--set-key", action="store", dest="set_key", required=False, nargs="?",
+    parser.add_argument("-p", "--disable-prints", action="store_true", dest="prints", required=False,
+                        help="Completely disable all print statements, except for uploads, errors, and important info")
+    parser.add_argument("-k", "--set-key", action="store", dest="user", required=False, nargs="?",
                         help="Set stat.ink key for user")
     return parser.parse_args()
 
 async def main():
     parsed = parse_args()
     config.params['threaded'] = parsed.threaded
+    config.params['headless'] = parsed.prints
     if parsed.check_updates:
         await check_for_updates()
     
@@ -43,10 +46,10 @@ async def main():
         await login()
         return
     
-    if parsed.set_key is not None:
-        key = await get_stat_ink_key(parsed.set_key)
+    if parsed.user is not None:
+        key = await get_stat_ink_key(parsed.user)
         if key is not None:
-            usr = user.User(parsed.set_key)
+            usr = user.User(parsed.user)
             await usr.set_statink_key(key)
         return
 

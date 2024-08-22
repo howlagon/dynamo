@@ -82,7 +82,7 @@ async def get_challenge_win_loss(username, history_detail: str, mode: str):
     db = UserDatabase()
     bullet_token, g_token = db[username][2], db[username][3]
     matches = await graphql(bullet_token, g_token, f'{mode}', return_json=True)
-    nodes = matches['data'][[key for key in matches['data'].keys() if 'Histories' in key][0]]['nodes']
+    nodes = matches['data'][[key for key in matches['data'].keys() if 'Histories' in key][0]]['historyGroups']['nodes']
     for node in nodes:
         for battle in node['historyDetails']['nodes']:
             if history_detail == battle['id']:
@@ -94,7 +94,7 @@ async def get_x_power_after(username, history_detail: str):
     db = UserDatabase()
     bullet_token, g_token = db[username][2], db[username][3]
     matches = await graphql(bullet_token, g_token, 'xmatch', return_json=True)
-    nodes = matches['data'][[key for key in matches['data'].keys() if 'Histories' in key][0]]['nodes']
+    nodes = matches['data'][[key for key in matches['data'].keys() if 'Histories' in key][0]]['historyGroups']['nodes']
     for node in nodes:
         for battle in node['historyDetails']['nodes']:
             if history_detail == battle['id']:
