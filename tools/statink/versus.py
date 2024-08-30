@@ -63,9 +63,13 @@ async def find_rank_after(username: str, history_detail: str) -> str:
     db = UserDatabase()
     bullet_token, g_token = db[username][2], db[username][3]
     matches = await Cache.graphql(bullet_token, g_token, 'latest', return_json=True)
-    # wacky list comprehension
-    battles = [node['historyDetails']['nodes'] for node in matches['data']['latestBattleHistories']['historyGroups']['nodes']][0]
-    battle = [battle for battle in battles if battle['id'] == history_detail][0]
+    try:
+        battles = [node['historyDetails']['nodes'] for node in matches['data']['latestBattleHistories']['historyGroups']['nodes']][0]
+        battle = [battle for battle in battles if battle['id'] == history_detail][0]
+    except IndexError:
+        matches = await graphql(bullet_token, g_token, 'latest', return_json=True)
+        battles = [node['historyDetails']['nodes'] for node in matches['data']['latestBattleHistories']['historyGroups']['nodes']][0]
+        battle = [battle for battle in battles if battle['id'] == history_detail][0]
     rank = await split_rank(battle['udemae'])
     return rank
 
