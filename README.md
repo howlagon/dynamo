@@ -21,7 +21,7 @@ Name given by [ivySIDEUP](https://twitter.com/ivySIDEUP), the #1 Dynamo Roller i
 2. Download and install [pipx](https://github.com/pypa/pipx?tab=readme-ov-file#install-pipx)
 3. Download and install [Poetry](https://python-poetry.org/docs/#installing-with-pipx) (`pipx install poetry`)
 4. (Windows only) install [Git](https://git-scm.com/download/win), if not already installed
-5. Clone the script via terminal by running `git clone https://github.com/howlagon/dynamo -o dynamo`.
+5. Clone the script via terminal by running `git clone https://github.com/howlagon/dynamo`.
 6. Change directory into Dynamo (`cd dynamo`)
 7. Install dependencies `poetry install`
 
